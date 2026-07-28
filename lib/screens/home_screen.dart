@@ -72,78 +72,132 @@ class _HomeScreenState extends State<HomeScreen> {
       (match) => ' ',
     );
   }
-    Widget buildMenuCard({
-    required BuildContext context,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Widget page,
-  }) {
-    return Card(
-      elevation: 5,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.blue,
-          child: Icon(
-            icon,
-            color: Colors.white,
-          ),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios),
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => page),
-          );
+   Widget buildMenuCard({
+  required BuildContext context,
+  required IconData icon,
+  required String title,
+  required String subtitle,
+  required Widget page,
+}) {
+  return Card(
+    elevation: 8,
+    shadowColor: Colors.black12,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => page),
+        );
 
-          await chargerStatistiques();
-        },
-      ),
-    );
-  }
-
-  Widget buildStatCard(
-    String titre,
-    String valeur,
-    IconData icon,
-  ) {
-    return Card(
-      elevation: 4,
+        await chargerStatistiques();
+      },
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 20,
-          horizontal: 12,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        padding: const EdgeInsets.all(18),
+        child: Row(
           children: [
-            Icon(
-              icon,
-              size: 32,
-              color: Colors.blue,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              valeur,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: Colors.blue.shade100,
+              child: Icon(
+                icon,
+                color: Colors.blue,
+                size: 30,
               ),
             ),
-            const SizedBox(height: 5),
-            Text(titre),
+
+            const SizedBox(width: 18),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 5),
+
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 20,
+            ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+Widget buildStatCard(
+  String titre,
+  String valeur,
+  IconData icon,
+  Color color,
+) {
+  return Card(
+    elevation: 6,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 20,
+        horizontal: 12,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: color.withOpacity(0.15),
+            child: Icon(
+              icon,
+              color: color,
+              size: 30,
+            ),
+          ),
+          const SizedBox(height: 15),
+          FittedBox(
+  fit: BoxFit.scaleDown,
+  child: Text(
+    valeur,
+    textAlign: TextAlign.center,
+    style: const TextStyle(
+      fontSize: 22,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+),
+          const SizedBox(height: 6),
+          Text(
+            titre,
+            style: const TextStyle(
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
     @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -218,28 +272,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 0.85,
+                childAspectRatio: 0.75,
                 children: [
                   buildStatCard(
                     "Clients",
                     nombreClients.toString(),
                     Icons.people,
+                    Colors.blue,
                   ),
                   buildStatCard(
                     "Commandes",
                     nombreCommandes.toString(),
                     Icons.local_laundry_service,
+                    Colors.green,
                   ),
                   buildStatCard(
                     "Vêtements",
                     nombreVetements.toString(),
                     Icons.checkroom,
+                    Colors.orange,
                   ),
                   buildStatCard(
                     "Paiements",
                     "${formatMontant(totalPaiements)} FCFA",
                     Icons.payments,
+                    Colors.purple,
                   ),
+                  
                 ],
               ),
 
@@ -296,6 +355,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+  onPressed: () async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CommandeScreen(),
+      ),
+    );
+
+    await chargerStatistiques();
+  },
+  icon: const Icon(Icons.add),
+  label: const Text("Commande"),
+),
     );
   }
 }
