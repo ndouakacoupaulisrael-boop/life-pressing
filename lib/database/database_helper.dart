@@ -375,4 +375,77 @@ Future<double> getTotalPaiements() async {
 
   return (resultat.first["total"] as num).toDouble();
 }
+Future<int> getNombreCommandesEnAttente() async {
+  final db = await database;
+
+  final resultat = await db.rawQuery(
+    '''
+    SELECT COUNT(*) AS total
+    FROM commandes
+    WHERE statut = 'En attente'
+    ''',
+  );
+
+  return Sqflite.firstIntValue(resultat) ?? 0;
+}
+
+Future<int> getNombreCommandesTerminees() async {
+  final db = await database;
+
+  final resultat = await db.rawQuery(
+    '''
+    SELECT COUNT(*) AS total
+    FROM commandes
+    WHERE statut = 'Terminée'
+    ''',
+  );
+
+  return Sqflite.firstIntValue(resultat) ?? 0;
+}
+
+Future<double> getChiffreAffairesJour() async {
+  final db = await database;
+
+  final aujourdHui =
+      DateTime.now().toIso8601String().substring(0, 10);
+
+  final resultat = await db.rawQuery(
+    '''
+    SELECT SUM(montant) AS total
+    FROM paiements
+    WHERE date LIKE ?
+    ''',
+    ['$aujourdHui%'],
+  );
+
+  if (resultat.first["total"] == null) {
+    return 0;
+  }
+
+  return (resultat.first["total"] as num).toDouble();
+}
+
+Future<double> getChiffreAffairesMois() async {
+  final db = await database;
+
+  final maintenant = DateTime.now();
+
+  final mois =
+      "${maintenant.year}-${maintenant.month.toString().padLeft(2, '0')}";
+
+  final resultat = await db.rawQuery(
+    '''
+    SELECT SUM(montant) AS total
+    FROM paiements
+    WHERE date LIKE ?
+    ''',
+    ['$mois%'],
+  );
+
+  if (resultat.first["total"] == null) {
+    return 0;
+  }
+
+  return (resultat.first["total"] as num).toDouble();
+}
 }
