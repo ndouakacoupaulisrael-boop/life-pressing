@@ -17,12 +17,16 @@ class DashboardHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(25),
+        borderRadius:
+            BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.25),
+            color: Colors.blue.withValues(
+              alpha: 0.25,
+            ),
             blurRadius: 15,
-            offset: const Offset(0, 8),
+            offset:
+                const Offset(0, 8),
           ),
         ],
       ),
@@ -30,28 +34,33 @@ class DashboardHeader extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 38,
-            backgroundColor: Colors.white,
+            backgroundColor:
+                Colors.white,
             child: Icon(
-              Icons.local_laundry_service,
+              Icons
+                  .local_laundry_service,
               size: 42,
               color: Colors.blue,
             ),
           ),
           SizedBox(height: 18),
           Text(
-            "Life Pressing",
+            'Life Pressing',
             style: TextStyle(
               color: Colors.white,
               fontSize: 30,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
           SizedBox(height: 8),
           Text(
-            "Gestion intelligente de votre pressing",
-            textAlign: TextAlign.center,
+            'Gestion intelligente de votre pressing',
+            textAlign:
+                TextAlign.center,
             style: TextStyle(
-              color: Colors.white70,
+              color:
+                  Colors.white70,
               fontSize: 16,
             ),
           ),

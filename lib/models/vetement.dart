@@ -21,7 +21,7 @@ class Vetement {
     return Vetement(
       id: map['id'],
       nom: map['nom'],
-      prix: map['prix'],
+      prix: (map['prix'] as num).toDouble(),
     );
   }
 }

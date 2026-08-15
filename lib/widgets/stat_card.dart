@@ -17,43 +17,87 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 6,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+      elevation: 8,
+      shadowColor:
+          color.withValues(
+        alpha: 0.25,
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
+      shape: RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.circular(20),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius:
+              BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white,
+              color.withValues(
+                alpha: 0.06,
+              ),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        padding:
+            const EdgeInsets.symmetric(
           vertical: 20,
           horizontal: 12,
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: color.withOpacity(0.15),
+            Container(
+              padding:
+                  const EdgeInsets.all(
+                14,
+              ),
+              decoration:
+                  BoxDecoration(
+                color:
+                    color.withValues(
+                  alpha: 0.15,
+                ),
+                shape:
+                    BoxShape.circle,
+              ),
               child: Icon(
                 icon,
                 color: color,
-                size: 30,
+                size: 32,
               ),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(
+              height: 18,
+            ),
             FittedBox(
-              fit: BoxFit.scaleDown,
               child: Text(
                 valeur,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight:
+                      FontWeight.bold,
+                  color: color,
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(
+              height: 8,
+            ),
             Text(
               titre,
-              style: const TextStyle(
+              textAlign:
+                  TextAlign.center,
+              style:
+                  const TextStyle(
                 fontSize: 15,
+                fontWeight:
+                    FontWeight.w600,
+                color:
+                    Colors.black87,
               ),
             ),
           ],

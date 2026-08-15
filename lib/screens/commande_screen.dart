@@ -3,10 +3,18 @@ import '../database/database_helper.dart';
 import '../models/client.dart';
 import '../models/commande.dart';
 import 'detail_commande_screen.dart';
-
+import 'modifier_commande_screen.dart';
+import '../services/pdf_service.dart';
+import '../models/vetement.dart';
+import '../models/detail_commande.dart';
+import '../services/commande_service.dart';
 class CommandeScreen extends StatefulWidget {
-  const CommandeScreen({super.key});
+  final int refreshSignal;
 
+  const CommandeScreen({
+    super.key,
+    this.refreshSignal = 0,
+  });
   @override
   State<CommandeScreen> createState() => _CommandeScreenState();
 }
@@ -15,12 +23,39 @@ class _CommandeScreenState extends State<CommandeScreen> {
   List<Client> clients = [];
   List<Commande> commandes = [];
   List<Commande> commandesFiltrees = [];
+  List<Vetement> vetements = [];
+List<DetailCommande> detailsTemporaires = [];
+
+Vetement? vetementSelectionne;
+
+String couleurSelectionnee = "Blanc";
+
+final TextEditingController quantiteController =
+    TextEditingController(text: "1");
+
+final List<String> couleurs = [
+  "Blanc",
+  "Noir",
+  "Bleu",
+  "Rouge",
+  "Vert",
+  "Jaune",
+  "Gris",
+  "Marron",
+  "Beige",
+  "Rose",
+  "Violet",
+  "Orange",
+  "Multicolore",
+  "Autre",
+];
 
 final rechercheController = TextEditingController();
+String filtreStatut = "Toutes";
 
   Client? clientSelectionne;
 
-  String statut = "En cours";
+  String statut = "En attente";
 
   final TextEditingController dateController = TextEditingController();
 
@@ -32,9 +67,37 @@ final rechercheController = TextEditingController();
 
     chargerDonnees();
   }
+  @override
+void didUpdateWidget(
+  covariant CommandeScreen oldWidget,
+) {
+  super.didUpdateWidget(oldWidget);
+
+  if (oldWidget.refreshSignal !=
+      widget.refreshSignal) {
+    chargerDonnees();
+  }
+}
 Future<void> chargerDonnees() async {
   clients = await DatabaseHelper.instance.getClients();
-  commandes = await DatabaseHelper.instance.getCommandes();
+  commandes = await CommandeService.instance.getCommandes();
+  vetements = await DatabaseHelper.instance.getVetements();
+
+  debugPrint("CLIENTS CHARGÉS : ${clients.length}");
+  debugPrint("VÊTEMENTS CHARGÉS : ${vetements.length}");
+
+  for (final client in clients) {
+    debugPrint(
+      "Client : ${client.nom} ${client.prenom}",
+    );
+  }
+
+  for (final vetement in vetements) {
+    debugPrint(
+      "Vêtement : ${vetement.nom} - ${vetement.prix}",
+    );
+  }
+
   commandesFiltrees = commandes;
 
   if (clientSelectionne != null) {
@@ -46,6 +109,18 @@ Future<void> chargerDonnees() async {
       clientSelectionne = null;
     }
   }
+
+  if (vetementSelectionne != null) {
+    try {
+      vetementSelectionne = vetements.firstWhere(
+        (v) => v.id == vetementSelectionne!.id,
+      );
+    } catch (_) {
+      vetementSelectionne = null;
+    }
+  }
+
+  if (!mounted) return;
 
   setState(() {});
 }
@@ -71,41 +146,666 @@ void rechercherCommande(String valeur) {
     }
   });
 }
+void filtrerCommandes(String filtre) {
+  setState(() {
+    filtreStatut = filtre;
 
-  Future<void> ajouterCommande() async {
-    if (clientSelectionne == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Veuillez sélectionner un client"),
-        ),
-      );
-      return;
+    if (filtre == "Toutes") {
+      commandesFiltrees = commandes;
+    } else {
+      commandesFiltrees = commandes
+          .where((commande) => commande.statut == filtre)
+          .toList();
     }
+  });
+}
 
-    Commande commande = Commande(
-      clientId: clientSelectionne!.id!,
-      date: dateController.text,
-      total: 0.0,
-      statut: statut,
+Color couleurStatut(String statut) {
+  switch (statut) {
+    case "En attente":
+      return Colors.orange;
+
+    case "En cours":
+      return Colors.blue;
+
+    case "Terminée":
+      return Colors.green;
+
+    case "Livrée":
+      return Colors.teal;
+
+    default:
+      return Colors.grey;
+  }
+}
+
+void ajouterVetementTemporaire() {
+  if (vetementSelectionne == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Veuillez sélectionner un vêtement"),
+      ),
+    );
+    return;
+  }
+  if (vetementSelectionne!.prix <= 0) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Le tarif de ce vêtement doit être défini '
+        'avant de l’ajouter à une commande.',
+      ),
+      backgroundColor: Colors.orange,
+    ),
+  );
+
+  return;
+}
+
+  final quantite =
+      int.tryParse(quantiteController.text.trim());
+
+  if (quantite == null || quantite <= 0) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Veuillez saisir une quantité valide"),
+      ),
+    );
+    return;
+  }
+
+  final detail = DetailCommande(
+    commandeId: 0,
+    vetementId: vetementSelectionne!.id,
+    vetement: vetementSelectionne!.nom,
+    couleur: couleurSelectionnee,
+    quantite: quantite,
+    prix: vetementSelectionne!.prix,
+  );
+
+  setState(() {
+    detailsTemporaires.add(detail);
+
+    vetementSelectionne = null;
+    couleurSelectionnee = "Blanc";
+    quantiteController.text = "1";
+  });
+}
+double get totalTemporaire {
+  return detailsTemporaires.fold(
+    0.0,
+    (total, detail) => total + detail.total,
+  );
+}
+Future<void> ajouterCommande() async {
+  if (clientSelectionne == null) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Veuillez sélectionner un client",
+        ),
+      ),
     );
 
-    await DatabaseHelper.instance.insertCommande(commande);
+    return;
+  }
+
+  if (detailsTemporaires.isEmpty) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Veuillez ajouter au moins un vêtement",
+        ),
+      ),
+    );
+
+    return;
+  }
+
+  try {
+    final commandeId =
+        await CommandeService.instance
+            .creerCommande(
+      clientId:
+          clientSelectionne!.id!,
+      date: dateController.text,
+      statut: statut,
+
+      // On envoie une copie de la liste.
+      details:
+          List<DetailCommande>.from(
+        detailsTemporaires,
+      ),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      detailsTemporaires.clear();
+
+      clientSelectionne = null;
+      vetementSelectionne = null;
+
+      couleurSelectionnee =
+          "Blanc";
+
+      quantiteController.text =
+          "1";
+
+      statut = "En attente";
+
+      dateController.text =
+          DateTime.now()
+              .toString()
+              .split(' ')[0];
+    });
 
     await chargerDonnees();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Commande enregistrée avec succès"),
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      SnackBar(
+        content: Text(
+          "Commande #$commandeId "
+          "enregistrée avec succès",
+        ),
+        backgroundColor:
+            Colors.green,
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      SnackBar(
+        content: Text(
+          "Erreur lors de "
+          "l'enregistrement : $e",
+        ),
+        backgroundColor:
+            Colors.red,
       ),
     );
   }
+}
+Future<void> imprimerRecu(
+  Commande commande,
+  String nomClient,
+) async {
+  try {
+    if (commande.id == null) {
+      throw Exception(
+        'Commande invalide.',
+      );
+    }
+
+    final paiements =
+        await DatabaseHelper.instance
+            .getPaiementsCommande(
+      commande.id!,
+    );
+
+    if (!mounted) return;
+
+    if (paiements.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Impossible de générer un reçu : '
+            'aucun paiement n’a été enregistré.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+
+      return;
+    }
+
+    final paiementsTries =
+        List.of(paiements)
+          ..sort(
+            (a, b) => (a.id ?? 0).compareTo(
+              b.id ?? 0,
+            ),
+          );
+
+    final dernierPaiement =
+        paiementsTries.last;
+
+    final totalPaye =
+        paiements.fold<double>(
+      0,
+      (somme, paiement) =>
+          somme + paiement.montant,
+    );
+
+    final resteCalcule =
+        commande.total - totalPaye;
+
+    final resteAPayer =
+        resteCalcule > 0
+            ? resteCalcule
+            : 0.0;
+
+    final articles =
+        await DatabaseHelper.instance
+            .getDetailsCommande(
+      commande.id!,
+    );
+
+    final client =
+        clients.firstWhere(
+      (c) => c.id == commande.clientId,
+    );
+
+    final parametre =
+        await DatabaseHelper.instance
+            .getParametre();
+
+    await PdfService.genererRecu(
+      nomPressing:
+          parametre?.nomPressing ??
+              'Life Pressing',
+      adresse:
+          parametre?.adresse ?? '',
+      email:
+          parametre?.email ?? '',
+      client:
+          nomClient,
+      telephone:
+          client.telephone,
+      numeroCommande:
+          commande.id!,
+      date:
+          dernierPaiement.date,
+      modePaiement:
+          dernierPaiement.modePaiement,
+      articles:
+          articles,
+      montant:
+          dernierPaiement.montant,
+      montantCommande:
+          commande.total,
+      paiementEffectue:
+          dernierPaiement.montant,
+      totalPaye:
+          totalPaye,
+      resteAPayer:
+          resteAPayer,
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              ),
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+Future<void> _afficherActionInterdite(
+  String message,
+) async {
+  if (!mounted) return;
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Row(
+          children: [
+            Icon(
+              Icons.lock_rounded,
+              color: Colors.orange,
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Autorisation requise',
+              ),
+            ),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.of(
+                dialogContext,
+              ).pop();
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    },
+  );
+}
+Future<void> _changerStatutCommande(
+  Commande commande,
+) async {
+  String nouveauStatut = commande.statut;
+
+  final statutChoisi = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(
+              'Statut de la commande #${commande.id}',
+            ),
+            content: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: "Statut",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.flag),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: nouveauStatut,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(
+                      value: "En attente",
+                      child: Text("🟡 En attente"),
+                    ),
+                    DropdownMenuItem(
+                      value: "En cours",
+                      child: Text("🔵 En cours"),
+                    ),
+                    DropdownMenuItem(
+                      value: "Terminée",
+                      child: Text("🟢 Terminée"),
+                    ),
+                    DropdownMenuItem(
+                      value: "Livrée",
+                      child: Text("✅ Livrée"),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+
+                    setDialogState(() {
+                      nouveauStatut = value;
+                    });
+                  },
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(
+                    dialogContext,
+                    nouveauStatut,
+                  );
+                },
+                child: const Text('Enregistrer'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  if (statutChoisi == null ||
+      statutChoisi == commande.statut) {
+    return;
+  }
+
+  try {
+    await CommandeService.instance.modifierStatut(
+      commandeId: commande.id!,
+      statut: statutChoisi,
+    );
+
+    await chargerDonnees();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Statut modifié : $statutChoisi',
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              ),
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+Future<void> _actualiserAvecMessage() async {
+  await chargerDonnees();
+
+  if (!mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Données actualisées',
+      ),
+    ),
+  );
+}
+Future<void> _ouvrirModificationCommande(
+  Commande commande,
+) async {
+  try {
+    final autorise =
+        await CommandeService.instance
+            .autoriserModification(
+      commande,
+    );
+
+    if (!mounted) return;
+
+    if (!autorise) {
+      await _afficherActionInterdite(
+        'Seul le propriétaire peut modifier '
+        'la commande #${commande.id}.\n\n'
+        'Cette tentative a été enregistrée '
+        'dans le journal de sécurité.',
+      );
+
+      return;
+    }
+
+    if (!mounted) return;
+
+    final resultat =
+        await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            ModifierCommandeScreen(
+          commande: commande,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (resultat == true) {
+      await chargerDonnees();
+    }
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      SnackBar(
+        content: Text(
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              ),
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+Future<void> _supprimerCommande(
+  Commande commande,
+) async {
+  final confirmation =
+      await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.red,
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Supprimer la commande',
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Voulez-vous vraiment supprimer '
+          'la commande #${commande.id} ?\n\n'
+          'Une commande ayant déjà reçu '
+          'un paiement ne pourra pas être supprimée.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(
+                dialogContext,
+              ).pop(false);
+            },
+            child: const Text(
+              'Annuler',
+            ),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.of(
+                dialogContext,
+              ).pop(true);
+            },
+            icon: const Icon(
+              Icons.delete_rounded,
+            ),
+            label: const Text(
+              'Supprimer',
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmation != true ||
+      !mounted) {
+    return;
+  }
+
+  try {
+    final autorise =
+        await CommandeService.instance
+            .supprimerCommande(
+      commande,
+    );
+
+    if (!mounted) return;
+
+    if (!autorise) {
+      await _afficherActionInterdite(
+        'Seul le propriétaire peut supprimer '
+        'la commande #${commande.id}.\n\n'
+        'Cette tentative a été enregistrée '
+        'dans le journal de sécurité.',
+      );
+
+      return;
+    }
+
+    await chargerDonnees();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Commande supprimée avec succès.',
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      SnackBar(
+        content: Text(
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              ),
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
     @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Gestion des commandes"),
-        centerTitle: true,
-      ),
+  title: const Text("Gestion des commandes"),
+  centerTitle: true,
+  actions: [
+    IconButton(
+      tooltip: "Actualiser",
+      icon: const Icon(Icons.refresh),
+      onPressed: _actualiserAvecMessage,
+    ),
+  ],
+),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -126,27 +826,296 @@ void rechercherCommande(String valeur) {
             ),
 
             const SizedBox(height: 20),
+          DropdownButtonFormField<String>(
+  key: ValueKey(statut),
+  initialValue: statut,
+  decoration: const InputDecoration(
+    labelText: "Statut",
+    border: OutlineInputBorder(),
+    prefixIcon: Icon(Icons.flag),
+  ),
+  items: const [
+    DropdownMenuItem(
+      value: "En attente",
+      child: Text("🟡 En attente"),
+    ),
+    DropdownMenuItem(
+      value: "En cours",
+      child: Text("🔵 En cours"),
+    ),
+    DropdownMenuItem(
+      value: "Terminée",
+      child: Text("🟢 Terminée"),
+    ),
+    DropdownMenuItem(
+      value: "Livrée",
+      child: Text("✅ Livrée"),
+    ),
+  ],
+  onChanged: (value) {
+    setState(() {
+      statut = value!;
+    });
+  },
+),
+const SizedBox(height:20),
 
-DropdownButtonFormField<Client>(
-  initialValue: clients.contains(clientSelectionne)
-    ? clientSelectionne
-    : null,
+
+InputDecorator(
   decoration: const InputDecoration(
     labelText: "Client",
     border: OutlineInputBorder(),
   ),
-  items: clients.map((client) {
-    return DropdownMenuItem<Client>(
-      value: client,
-      child: Text("${client.nom} ${client.prenom}"),
-    );
-  }).toList(),
-  onChanged: (client) {
-    setState(() {
-      clientSelectionne = client;
-    });
-  },
+  child: DropdownButtonHideUnderline(
+    child: DropdownButton<Client>(
+      value: clients.contains(clientSelectionne)
+          ? clientSelectionne
+          : null,
+      isExpanded: true,
+      hint: const Text(
+        "Sélectionner un client",
+      ),
+      items: clients.map((client) {
+        return DropdownMenuItem<Client>(
+          value: client,
+          child: Text(
+            "${client.nom} ${client.prenom}",
+          ),
+        );
+      }).toList(),
+      onChanged: (client) {
+        setState(() {
+          clientSelectionne = client;
+        });
+      },
+    ),
+  ),
 ),
+const SizedBox(height: 20),
+
+const Divider(),
+
+const SizedBox(height: 10),
+
+const Text(
+  "Vêtements de la commande",
+  style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+  ),
+),
+
+const SizedBox(height: 15),
+InputDecorator(
+  decoration: const InputDecoration(
+    labelText: "Vêtement",
+    border: OutlineInputBorder(),
+    prefixIcon: Icon(Icons.checkroom),
+  ),
+  child: DropdownButtonHideUnderline(
+    child: DropdownButton<Vetement>(
+      value: vetements.contains(
+        vetementSelectionne,
+      )
+          ? vetementSelectionne
+          : null,
+      isExpanded: true,
+      hint: const Text(
+        "Sélectionner un vêtement",
+      ),
+      items: vetements.map((vetement) {
+        return DropdownMenuItem<Vetement>(
+          value: vetement,
+          child: Text(
+            "${vetement.nom} - "
+            "${vetement.prix.toStringAsFixed(0)} FCFA",
+          ),
+        );
+      }).toList(),
+      onChanged: (vetement) {
+        setState(() {
+          vetementSelectionne = vetement;
+        });
+      },
+    ),
+  ),
+),
+
+const SizedBox(height: 15),
+InputDecorator(
+  decoration: const InputDecoration(
+    labelText: "Couleur",
+    border: OutlineInputBorder(),
+    prefixIcon: Icon(Icons.palette),
+  ),
+  child: DropdownButtonHideUnderline(
+    child: DropdownButton<String>(
+      value: couleurs.contains(
+        couleurSelectionnee,
+      )
+          ? couleurSelectionnee
+          : "Blanc",
+      isExpanded: true,
+      items: couleurs.map((couleur) {
+        return DropdownMenuItem<String>(
+          value: couleur,
+          child: Text(couleur),
+        );
+      }).toList(),
+      onChanged: (couleur) {
+        if (couleur == null) return;
+
+        setState(() {
+          couleurSelectionnee = couleur;
+        });
+      },
+    ),
+  ),
+),
+
+const SizedBox(height: 15),
+
+TextField(
+  controller: quantiteController,
+  keyboardType: TextInputType.number,
+  decoration: const InputDecoration(
+    labelText: "Quantité",
+    border: OutlineInputBorder(),
+    prefixIcon: Icon(Icons.numbers),
+  ),
+),
+
+const SizedBox(height: 15),
+
+if (vetementSelectionne != null)
+  Card(
+    color: Colors.blue.shade50,
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        mainAxisAlignment:
+            MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            "Prix unitaire",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            "${vetementSelectionne!.prix.toStringAsFixed(0)} FCFA",
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+
+const SizedBox(height: 10),
+
+ElevatedButton.icon(
+  onPressed: ajouterVetementTemporaire,
+  icon: const Icon(Icons.add),
+  label: const Text(
+    "Ajouter le vêtement",
+  ),
+),
+
+const SizedBox(height: 20),
+if (detailsTemporaires.isNotEmpty) ...[
+  const Text(
+    "Articles ajoutés",
+    style: TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+
+  const SizedBox(height: 10),
+
+  ListView.builder(
+    shrinkWrap: true,
+    physics:
+        const NeverScrollableScrollPhysics(),
+    itemCount: detailsTemporaires.length,
+    itemBuilder: (context, index) {
+      final detail =
+          detailsTemporaires[index];
+
+      return Card(
+        child: ListTile(
+          leading: const Icon(
+            Icons.checkroom,
+          ),
+          title: Text(detail.vetement),
+          subtitle: Text(
+            "${detail.couleur} • "
+            "${detail.quantite} × "
+            "${detail.prix.toStringAsFixed(0)} FCFA",
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "${detail.total.toStringAsFixed(0)} F",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                tooltip: "Retirer",
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                ),
+                onPressed: () {
+                  setState(() {
+                    detailsTemporaires
+                        .removeAt(index);
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  ),
+
+  const SizedBox(height: 10),
+
+  Card(
+    color: Colors.green.shade50,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment:
+            MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            "TOTAL",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            "${totalTemporaire.toStringAsFixed(0)} FCFA",
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+
+  const SizedBox(height: 10),
+],
             const SizedBox(height: 25),
 
             ElevatedButton.icon(
@@ -169,6 +1138,40 @@ DropdownButtonFormField<Client>(
               ),
             ),
             const SizedBox(height: 15),
+            Wrap(
+  spacing: 8,
+  runSpacing: 8,
+  children: [
+    ChoiceChip(
+      label: const Text("Toutes"),
+      selected: filtreStatut == "Toutes",
+      onSelected: (_) => filtrerCommandes("Toutes"),
+    ),
+    ChoiceChip(
+      label: const Text("En attente"),
+      selected: filtreStatut == "En attente",
+      onSelected: (_) => filtrerCommandes("En attente"),
+    ),
+    ChoiceChip(
+      label: const Text("En cours"),
+      selected: filtreStatut == "En cours",
+      onSelected: (_) => filtrerCommandes("En cours"),
+    ),
+    ChoiceChip(
+      label: const Text("Terminée"),
+      selected: filtreStatut == "Terminée",
+      onSelected: (_) => filtrerCommandes("Terminée"),
+    ),
+    ChoiceChip(
+      label: const Text("Livrée"),
+      selected: filtreStatut == "Livrée",
+      onSelected: (_) => filtrerCommandes("Livrée"),
+    ),
+  ],
+),
+
+const SizedBox(height: 20),
+
 
 TextField(
   controller: rechercheController,
@@ -214,11 +1217,23 @@ const SizedBox(height: 20),
                         child: ListTile(
   leading: const Icon(Icons.receipt_long),
   title: Text(nomClient),
-  subtitle: Text(
-    "Date : ${commande.date}\n"
-    "Statut : ${commande.statut}\n"
-    "Total : ${commande.total.toStringAsFixed(0)} FCFA",
-  ),
+  subtitle: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Text("Date : ${commande.date}"),
+    const SizedBox(height: 5),
+    Chip(
+      label: Text(commande.statut),
+      backgroundColor: couleurStatut(commande.statut),
+      labelStyle: const TextStyle(
+        color: Colors.white,
+      ),
+    ),
+    Text(
+      "Total : ${commande.total.toStringAsFixed(0)} FCFA",
+    ),
+  ],
+),
   isThreeLine: true,
 
   onTap: () async {
@@ -232,26 +1247,98 @@ const SizedBox(height: 20),
     );
     await chargerDonnees();
   },
-
-  trailing: IconButton(
-    icon: const Icon(
-      Icons.delete,
-      color: Colors.red,
-    ),
-    onPressed: () async {
-      await DatabaseHelper.instance.deleteCommande(commande.id!);
-
-      await chargerDonnees();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Commande supprimée avec succès",
-          ),
-        ),
+trailing: PopupMenuButton<String>(
+ onSelected: (value) async {
+  switch (value) {
+    case 'recu':
+      await imprimerRecu(
+        commande,
+        nomClient,
       );
-    },
-  ),
+      break;
+
+    case 'depot':
+      final details =
+          await DatabaseHelper.instance
+              .getDetailsCommande(
+        commande.id!,
+      );
+
+      final client =
+          clients.firstWhere(
+        (c) =>
+            c.id ==
+            commande.clientId,
+      );
+
+      final parametre =
+          await DatabaseHelper.instance
+              .getParametre();
+
+      await PdfService.genererTicketDepot(
+        nomPressing:
+            parametre?.nomPressing ??
+                'Life Pressing',
+        adresse:
+            parametre?.adresse ?? '',
+        email:
+            parametre?.email ?? '',
+        client: nomClient,
+        telephone: client.telephone,
+        numeroCommande:
+            commande.id!,
+        date: commande.date,
+        articles: details,
+        total: commande.total,
+        statut: commande.statut,
+      );
+      break;
+
+    case 'statut':
+      await _changerStatutCommande(
+        commande,
+      );
+      break;
+
+    case 'modifier':
+      await _ouvrirModificationCommande(
+        commande,
+      );
+      break;
+
+    case 'supprimer':
+      await _supprimerCommande(
+        commande,
+      );
+      break;
+  }
+},
+
+  itemBuilder: (context) => const [
+    PopupMenuItem(
+      value: "recu",
+      child: Text("🧾 Imprimer le reçu"),
+    ),
+    PopupMenuItem(
+      value: "depot",
+      child: Text("📄 Ticket de dépôt"),
+    ),
+    PopupMenuItem(
+  value: "statut",
+  child: Text("🔄 Changer le statut"),
+),
+   
+    PopupMenuDivider(),
+    PopupMenuItem(
+      value: "modifier",
+      child: Text("✏️ Modifier"),
+    ),
+    PopupMenuItem(
+      value: "supprimer",
+      child: Text("🗑️ Supprimer"),
+    ),
+  ],
+),
 ),
                       );
                     },

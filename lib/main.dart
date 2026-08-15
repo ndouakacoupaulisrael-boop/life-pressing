@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const PressingApp());
@@ -12,10 +12,10 @@ class PressingApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-  debugShowCheckedModeBanner: false,
-  title: 'Life Pressing',
-  theme: AppTheme.lightTheme,
-  home: const HomeScreen(),
+      debugShowCheckedModeBanner: false,
+      title: 'Life Pressing',
+      theme: AppTheme.lightTheme,
+      home: const LoginScreen(),
     );
-  } 
+  }
 }
