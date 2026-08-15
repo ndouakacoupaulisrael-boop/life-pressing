@@ -1,7 +1,4 @@
-enum RoleUtilisateur {
-  proprietaire,
-  employe,
-}
+enum RoleUtilisateur { proprietaire, employe }
 
 class SessionService {
   static String? _utilisateur;
@@ -40,7 +37,17 @@ class SessionService {
     required String utilisateur,
     required RoleUtilisateur role,
   }) {
-    _utilisateur = utilisateur;
+    final utilisateurNormalise = utilisateur.trim().toLowerCase();
+
+    if (utilisateurNormalise.isEmpty) {
+      throw ArgumentError.value(
+        utilisateur,
+        'utilisateur',
+        'Le nom d’utilisateur est obligatoire.',
+      );
+    }
+
+    _utilisateur = utilisateurNormalise;
     _role = role;
   }
 

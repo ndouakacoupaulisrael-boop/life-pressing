@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_helper.dart';
 import '../models/parametre.dart';
+import '../services/session_service.dart';
 
 class ParametreScreen extends StatefulWidget {
   const ParametreScreen({super.key});
@@ -29,8 +30,11 @@ class _ParametreScreenState extends State<ParametreScreen> {
   @override
   void initState() {
     super.initState();
-    chargerParametres();
-    chargerLogo();
+
+    if (SessionService.estProprietaire) {
+      chargerParametres();
+      chargerLogo();
+    }
   }
 
   Future<void> chargerParametres() async {
@@ -48,9 +52,7 @@ class _ParametreScreenState extends State<ParametreScreen> {
   }
 
   Future<void> choisirLogo() async {
-    final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
     if (image == null) return;
 
@@ -75,6 +77,19 @@ class _ParametreScreenState extends State<ParametreScreen> {
   }
 
   Future<void> enregistrer() async {
+    if (!SessionService.estProprietaire) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cette fonctionnalité est réservée au propriétaire.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+
+      return;
+    }
+
     final parametre = Parametre(
       nomPressing: nomPressingController.text,
       proprietaire: proprietaireController.text,
@@ -112,6 +127,27 @@ class _ParametreScreenState extends State<ParametreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!SessionService.estProprietaire) {
+      return const Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Cette fonctionnalité est réservée au propriétaire.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -121,10 +157,7 @@ class _ParametreScreenState extends State<ParametreScreen> {
             children: [
               const Text(
                 "Paramètres",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 20),
