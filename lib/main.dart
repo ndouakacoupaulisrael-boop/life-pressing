@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+
 import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
+import 'screens/navigation_screen.dart';
+import 'services/session_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await SessionService.restaurerSession();
+
   runApp(const PressingApp());
 }
 
@@ -15,7 +22,10 @@ class PressingApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Life Pressing',
       theme: AppTheme.lightTheme,
-      home: const LoginScreen(),
+
+      home: SessionService.estConnecte
+          ? const NavigationScreen()
+          : const LoginScreen(),
     );
   }
 }

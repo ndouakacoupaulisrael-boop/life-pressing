@@ -58,12 +58,20 @@ String filtreStatut = "Toutes";
   String statut = "En attente";
 
   final TextEditingController dateController = TextEditingController();
+String dateHeureActuelle() {
+  final maintenant = DateTime.now();
 
+  return '${maintenant.year.toString().padLeft(4, '0')}-'
+      '${maintenant.month.toString().padLeft(2, '0')}-'
+      '${maintenant.day.toString().padLeft(2, '0')} '
+      '${maintenant.hour.toString().padLeft(2, '0')}:'
+      '${maintenant.minute.toString().padLeft(2, '0')}';
+}
   @override
   void initState() {
     super.initState();
 
-    dateController.text = DateTime.now().toString().split(' ')[0];
+    dateController.text = dateHeureActuelle();
 
     chargerDonnees();
   }
@@ -297,9 +305,7 @@ Future<void> ajouterCommande() async {
       statut = "En attente";
 
       dateController.text =
-          DateTime.now()
-              .toString()
-              .split(' ')[0];
+          dateHeureActuelle();
     });
 
     await chargerDonnees();

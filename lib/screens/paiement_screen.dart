@@ -429,7 +429,115 @@ class _PaiementScreenState
       );
     }
   }
+Future<void> regenererRecuPaiement({
+  required Paiement paiement,
+  required Commande commande,
+}) async {
+  try {
+    final client =
+        await DatabaseHelper.instance.getClientById(
+      commande.clientId,
+    );
 
+    final details =
+        await CommandeService.instance.getDetailsCommande(
+      commande.id!,
+    );
+
+    final parametre =
+        await DatabaseHelper.instance.getParametre();
+
+    // Tous les paiements de cette commande.
+    final paiementsCommande =
+        await PaiementService.instance.getPaiementsCommande(
+      commande.id!,
+    );
+
+    // On remet les paiements dans l'ordre d'enregistrement.
+    paiementsCommande.sort(
+      (a, b) => (a.id ?? 0).compareTo(b.id ?? 0),
+    );
+
+    double totalPayeAuMoment = 0;
+
+    for (final element in paiementsCommande) {
+      totalPayeAuMoment += element.montant;
+
+      if (paiement.id != null &&
+          element.id == paiement.id) {
+        break;
+      }
+    }
+
+    // Sécurité si un ancien paiement n'a pas d'identifiant.
+    if (paiement.id == null) {
+      totalPayeAuMoment = paiement.montant;
+    }
+
+    double reste =
+        commande.total - totalPayeAuMoment;
+
+    if (reste < 0) {
+      reste = 0;
+    }
+
+    await PdfService.genererRecu(
+      nomPressing:
+          parametre?.nomPressing ?? 'Life Pressing',
+
+      adresse:
+          parametre?.adresse ?? '',
+
+      email:
+          parametre?.email ?? '',
+
+      client: client == null
+          ? 'Client inconnu'
+          : '${client.nom} ${client.prenom}',
+
+      telephone:
+          client?.telephone ?? '-',
+
+      numeroCommande:
+          commande.id!,
+
+      date:
+          paiement.date,
+
+      modePaiement:
+          paiement.modePaiement,
+
+      articles:
+          details,
+
+      montant:
+          paiement.montant,
+
+      montantCommande:
+          commande.total,
+
+      paiementEffectue:
+          paiement.montant,
+
+      totalPaye:
+          totalPayeAuMoment,
+
+      resteAPayer:
+          reste,
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Impossible de générer le reçu : $e',
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
   // ============================================================
   // COULEUR DU STATUT DE PAIEMENT
   // ============================================================
@@ -970,17 +1078,33 @@ class _PaiementScreenState
                                                 '${paiement.modePaiement}\n'
                                                 '${paiement.date}',
                                               ),
-                                              trailing:
-                                                  Text(
-                                                '${paiement.montant.toStringAsFixed(0)} FCFA',
-                                                style:
-                                                    const TextStyle(
-                                                  fontWeight:
-                                                      FontWeight.bold,
-                                                  color:
-                                                      Colors.green,
-                                                ),
-                                              ),
+                                              trailing: Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Text(
+      '${paiement.montant.toStringAsFixed(0)} FCFA',
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        color: Colors.green,
+      ),
+    ),
+
+    const SizedBox(width: 8),
+
+    IconButton(
+      tooltip: 'Voir le reçu',
+      icon: const Icon(
+        Icons.receipt_long,
+      ),
+      onPressed: () {
+        regenererRecuPaiement(
+          paiement: paiement,
+          commande: commande,
+        );
+      },
+    ),
+  ],
+),
                                             ),
                                           );
                                         },

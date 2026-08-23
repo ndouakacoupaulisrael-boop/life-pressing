@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void seConnecter() {
+  Future<void> seConnecter() async {
     final utilisateur = utilisateurController.text.trim().toLowerCase();
 
     final motDePasse = motDePasseController.text.trim();
@@ -70,11 +70,11 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    SessionService.ouvrirSession(
+    await SessionService.ouvrirSession(
       utilisateur: resultat.utilisateur,
       role: resultat.role,
     );
-
+if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const NavigationScreen()),
