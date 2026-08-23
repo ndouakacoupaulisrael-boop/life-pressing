@@ -32,6 +32,8 @@ String couleurSelectionnee = "Blanc";
 
 final TextEditingController quantiteController =
     TextEditingController(text: "1");
+    final TextEditingController complexiteController =
+    TextEditingController(text: "0");
 
 final List<String> couleurs = [
   "Blanc",
@@ -221,14 +223,33 @@ void ajouterVetementTemporaire() {
     );
     return;
   }
+final supplementComplexite =
+    double.tryParse(
+      complexiteController.text.trim(),
+    ) ??
+    0;
 
+if (supplementComplexite < 0) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        "Le supplément complexité ne peut pas être négatif.",
+      ),
+    ),
+  );
+
+  return;
+}
+
+final prixFinal =
+    vetementSelectionne!.prix + supplementComplexite;
   final detail = DetailCommande(
     commandeId: 0,
     vetementId: vetementSelectionne!.id,
     vetement: vetementSelectionne!.nom,
     couleur: couleurSelectionnee,
     quantite: quantite,
-    prix: vetementSelectionne!.prix,
+    prix: prixFinal,
   );
 
   setState(() {
@@ -301,6 +322,7 @@ Future<void> ajouterCommande() async {
 
       quantiteController.text =
           "1";
+          complexiteController.text = "0";
 
       statut = "En attente";
 
@@ -988,6 +1010,19 @@ TextField(
     labelText: "Quantité",
     border: OutlineInputBorder(),
     prefixIcon: Icon(Icons.numbers),
+  ),
+),
+
+const SizedBox(height: 15),
+TextField(
+  controller: complexiteController,
+  keyboardType: TextInputType.number,
+  decoration: const InputDecoration(
+    labelText: "Supplément complexité",
+    hintText: "0 si aucun supplément",
+    suffixText: "FCFA",
+    border: OutlineInputBorder(),
+    prefixIcon: Icon(Icons.add_circle_outline),
   ),
 ),
 
