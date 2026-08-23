@@ -281,7 +281,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -660,6 +660,22 @@ await db.execute(
   )
   ''',
 );
+// =======================
+// TARIFS / SERVICES
+// =======================
+
+await db.execute(
+  '''
+  CREATE TABLE tarifs(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT NOT NULL,
+    type TEXT NOT NULL,
+    modeCalcul TEXT NOT NULL,
+    valeur REAL NOT NULL,
+    actif INTEGER NOT NULL DEFAULT 1
+  )
+  ''',
+);
 await _ajouterVetementsParDefaut(db);
   }
 
@@ -806,6 +822,20 @@ if (oldVersion < 9) {
 }
 if (oldVersion < 10) {
   await _ajouterVetementsParDefaut(db);
+}
+if (oldVersion < 11) {
+  await db.execute(
+    '''
+    CREATE TABLE IF NOT EXISTS tarifs(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nom TEXT NOT NULL,
+      type TEXT NOT NULL,
+      modeCalcul TEXT NOT NULL,
+      valeur REAL NOT NULL,
+      actif INTEGER NOT NULL DEFAULT 1
+    )
+    ''',
+  );
 }
   }
 

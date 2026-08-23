@@ -7,6 +7,7 @@ import 'commande_screen.dart';
 import 'paiement_screen.dart';
 import 'statistique_screen.dart';
 import 'vetement_screen.dart';
+import 'tarif_screen.dart';
 import '../services/session_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -314,7 +315,19 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             const SizedBox(height: 12),
+if (SessionService.estProprietaire) ...[
+  const SizedBox(height: 12),
 
+  _buildMenuCard(
+    icon: Icons.price_change_rounded,
+    titre: "Tarifs et services",
+    sousTitre: "Configurer les services, options et suppléments",
+    couleur: const Color(0xFF0EA5E9),
+    onTap: () {
+      ouvrirEcran(const TarifScreen());
+    },
+  ),
+],
             _buildMenuCard(
               icon: Icons.payments_rounded,
               titre: "Paiements",
