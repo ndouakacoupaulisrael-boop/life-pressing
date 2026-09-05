@@ -1,6 +1,7 @@
 import '../models/commande.dart';
 import '../models/paiement.dart';
 import '../repositories/paiement_repository.dart';
+import 'security_service.dart';
 
 class SituationPaiement {
   final double totalCommande;
@@ -43,40 +44,26 @@ class PaiementEnregistreResultat {
 class PaiementService {
   PaiementService._();
 
-  static final PaiementService instance =
-      PaiementService._();
+  static final PaiementService instance = PaiementService._();
 
-  final PaiementRepository _repository =
-      PaiementRepository();
+  final PaiementRepository _repository = PaiementRepository();
 
   Future<List<Paiement>> getPaiements() {
     return _repository.getPaiements();
   }
 
-  Future<List<Paiement>> getPaiementsCommande(
-    int commandeId,
-  ) {
-    return _repository.getPaiementsCommande(
-      commandeId,
-    );
+  Future<List<Paiement>> getPaiementsCommande(int commandeId) {
+    return _repository.getPaiementsCommande(commandeId);
   }
 
-  Future<SituationPaiement> calculerSituation(
-    Commande commande,
-  ) async {
+  Future<SituationPaiement> calculerSituation(Commande commande) async {
     if (commande.id == null) {
-      throw Exception(
-        'Commande sans identifiant.',
-      );
+      throw Exception('Commande sans identifiant.');
     }
 
-    final totalPaye =
-        await _repository.getTotalPayeCommande(
-      commande.id!,
-    );
+    final totalPaye = await _repository.getTotalPayeCommande(commande.id!);
 
-    double reste =
-        commande.total - totalPaye;
+    double reste = commande.total - totalPaye;
 
     if (reste < 0) {
       reste = 0;
@@ -89,67 +76,63 @@ class PaiementService {
     );
   }
 
-  Future<PaiementEnregistreResultat>
-      enregistrerPaiement({
+  Future<PaiementEnregistreResultat> enregistrerPaiement({
     required Commande commande,
     required double montant,
     required String modePaiement,
   }) async {
     if (commande.id == null) {
-      throw Exception(
-        'Commande invalide.',
-      );
+      throw Exception('Commande invalide.');
     }
 
     if (montant <= 0) {
-      throw Exception(
-        'Le montant doit être supérieur à zéro.',
-      );
+      throw Exception('Le montant doit être supérieur à zéro.');
     }
 
     if (modePaiement.trim().isEmpty) {
-      throw Exception(
-        'Le mode de paiement est obligatoire.',
-      );
+      throw Exception('Le mode de paiement est obligatoire.');
     }
 
-    final situationAvant =
-        await calculerSituation(
-      commande,
-    );
+    final situationAvant = await calculerSituation(commande);
 
     if (situationAvant.estPayee) {
-      throw Exception(
-        'Cette commande est déjà entièrement payée.',
-      );
+      throw Exception('Cette commande est déjà entièrement payée.');
     }
 
-    if (montant >
-        situationAvant.resteAPayer + 0.001) {
+    if (montant > situationAvant.resteAPayer + 0.001) {
       throw Exception(
         'Le montant dépasse le reste à payer '
         '(${situationAvant.resteAPayer.toStringAsFixed(0)} FCFA).',
       );
     }
 
+    final mode = modePaiement.trim();
+
     final paiement = Paiement(
       commandeId: commande.id!,
       montant: montant,
-      date: DateTime.now()
-          .toIso8601String()
-          .substring(0, 10),
-      modePaiement:
-          modePaiement.trim(),
+      date: DateTime.now().toIso8601String().substring(0, 10),
+      modePaiement: mode,
     );
 
-    await _repository.insertPaiement(
-      paiement,
+    final paiementId = await _repository.insertPaiement(paiement);
+
+    // Le paiement est une opération autorisée
+    // au propriétaire comme à l'employé.
+    // On garde néanmoins une trace de l'auteur.
+    await SecurityService.journaliserAction(
+      action: 'ENREGISTRER_PAIEMENT',
+      cibleType: 'paiement',
+      cibleId: paiementId,
+      description:
+          'Paiement de '
+          '${montant.toStringAsFixed(0)} FCFA '
+          'enregistré pour la commande '
+          '#${commande.id} '
+          'par $mode.',
     );
 
-    final situationApres =
-        await calculerSituation(
-      commande,
-    );
+    final situationApres = await calculerSituation(commande);
 
     return PaiementEnregistreResultat(
       paiement: paiement,

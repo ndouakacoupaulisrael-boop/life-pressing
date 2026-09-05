@@ -15,8 +15,7 @@ class PdfService {
 
   static Future<pw.MemoryImage?> chargerLogo() async {
     try {
-      final prefs =
-          await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
 
       final valeur = prefs.getString("logo");
 
@@ -32,19 +31,16 @@ class PdfService {
           return null;
         }
 
-        final base64Image =
-            valeur.substring(indexVirgule + 1);
+        final base64Image = valeur.substring(indexVirgule + 1);
 
-        final Uint8List bytes =
-            base64Decode(base64Image);
+        final Uint8List bytes = base64Decode(base64Image);
 
         return pw.MemoryImage(bytes);
       }
 
       // Base64 direct
       try {
-        final Uint8List bytes =
-            base64Decode(valeur);
+        final Uint8List bytes = base64Decode(valeur);
 
         return pw.MemoryImage(bytes);
       } catch (_) {
@@ -56,23 +52,20 @@ class PdfService {
       return null;
     }
   }
-static Future<pw.ThemeData>
-    _chargerThemePdf() async {
-  final policeNormale =
-      await PdfGoogleFonts.notoSansRegular();
 
-  final policeGrasse =
-      await PdfGoogleFonts.notoSansBold();
+  static Future<pw.ThemeData> _chargerThemePdf() async {
+    final policeNormale = await PdfGoogleFonts.notoSansRegular();
 
-  final policeItalique =
-      await PdfGoogleFonts.notoSansItalic();
+    final policeGrasse = await PdfGoogleFonts.notoSansBold();
 
-  return pw.ThemeData.withFont(
-    base: policeNormale,
-    bold: policeGrasse,
-    italic: policeItalique,
-  );
-}
+    final policeItalique = await PdfGoogleFonts.notoSansItalic();
+
+    return pw.ThemeData.withFont(
+      base: policeNormale,
+      bold: policeGrasse,
+      italic: policeItalique,
+    );
+  }
   // ============================================================
   // EN-TÊTE
   // ============================================================
@@ -87,35 +80,21 @@ static Future<pw.ThemeData>
       child: pw.Column(
         children: [
           if (logo != null) ...[
-            pw.Image(
-              logo,
-              width: 80,
-              height: 80,
-              fit: pw.BoxFit.contain,
-            ),
+            pw.Image(logo, width: 80, height: 80, fit: pw.BoxFit.contain),
             pw.SizedBox(height: 10),
           ],
 
           pw.Text(
             nomPressing,
             textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(
-              fontSize: 24,
-              fontWeight: pw.FontWeight.bold,
-            ),
+            style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
           ),
 
           if (adresse.trim().isNotEmpty)
-            pw.Text(
-              adresse,
-              textAlign: pw.TextAlign.center,
-            ),
+            pw.Text(adresse, textAlign: pw.TextAlign.center),
 
           if (email.trim().isNotEmpty)
-            pw.Text(
-              email,
-              textAlign: pw.TextAlign.center,
-            ),
+            pw.Text(email, textAlign: pw.TextAlign.center),
         ],
       ),
     );
@@ -125,34 +104,26 @@ static Future<pw.ThemeData>
   // CELLULES
   // ============================================================
 
-  static pw.Widget _celluleEntete(
-    String texte,
-  ) {
+  static pw.Widget _celluleEntete(String texte) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(6),
       child: pw.Text(
         texte,
-        style: pw.TextStyle(
-          fontSize: 10,
-          fontWeight: pw.FontWeight.bold,
-        ),
+        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
       ),
     );
   }
 
   static pw.Widget _cellule(
     String texte, {
-    pw.TextAlign alignement =
-        pw.TextAlign.left,
+    pw.TextAlign alignement = pw.TextAlign.left,
   }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(6),
       child: pw.Text(
         texte,
         textAlign: alignement,
-        style: const pw.TextStyle(
-          fontSize: 9,
-        ),
+        style: const pw.TextStyle(fontSize: 9),
       ),
     );
   }
@@ -161,68 +132,56 @@ static Future<pw.ThemeData>
   // TABLE DES ARTICLES
   // ============================================================
 
-  static pw.Widget _tableArticles(
-    List<DetailCommande> articles,
-  ) {
+  static pw.Widget _tableArticles(List<DetailCommande> articles) {
     return pw.Table(
-      border: pw.TableBorder.all(
-        color: PdfColors.grey500,
-        width: 0.7,
-      ),
+      border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.7),
       columnWidths: {
-        0: const pw.FlexColumnWidth(2.7),
-        1: const pw.FlexColumnWidth(1.8),
-        2: const pw.FlexColumnWidth(0.8),
-        3: const pw.FlexColumnWidth(1.6),
-        4: const pw.FlexColumnWidth(1.8),
+        0: const pw.FlexColumnWidth(2.4),
+        1: const pw.FlexColumnWidth(1.5),
+        2: const pw.FlexColumnWidth(1.5),
+        3: const pw.FlexColumnWidth(0.7),
+        4: const pw.FlexColumnWidth(1.5),
+        5: const pw.FlexColumnWidth(1.7),
       },
       children: [
         pw.TableRow(
-          decoration: const pw.BoxDecoration(
-            color: PdfColors.grey300,
-          ),
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
           children: [
             _celluleEntete("Vêtement"),
             _celluleEntete("Couleur"),
+            _celluleEntete("Matière"),
             _celluleEntete("Qté"),
             _celluleEntete("Prix"),
             _celluleEntete("Total"),
           ],
         ),
 
-        ...articles.map(
-          (detail) {
-            return pw.TableRow(
-              children: [
-                _cellule(
-                  detail.vetement,
-                ),
+        ...articles.map((detail) {
+          return pw.TableRow(
+            children: [
+              _cellule(detail.vetement),
 
-                _cellule(
-                  detail.couleur,
-                ),
+              _cellule(detail.couleur),
 
-                _cellule(
-                  detail.quantite.toString(),
-                  alignement:
-                      pw.TextAlign.center,
-                ),
+              _cellule(detail.matiere),
 
-                _cellule(
-                  "${detail.prix.toStringAsFixed(0)} FCFA",
-                  alignement:
-                      pw.TextAlign.right,
-                ),
+              _cellule(
+                detail.quantite.toString(),
+                alignement: pw.TextAlign.center,
+              ),
 
-                _cellule(
-                  "${detail.total.toStringAsFixed(0)} FCFA",
-                  alignement:
-                      pw.TextAlign.right,
-                ),
-              ],
-            );
-          },
-        ),
+              _cellule(
+                "${detail.prix.toStringAsFixed(0)} FCFA",
+                alignement: pw.TextAlign.right,
+              ),
+
+              _cellule(
+                "${detail.total.toStringAsFixed(0)} FCFA",
+                alignement: pw.TextAlign.right,
+              ),
+            ],
+          );
+        }),
       ],
     );
   }
@@ -237,24 +196,19 @@ static Future<pw.ThemeData>
     bool gras = false,
   }) {
     return pw.Row(
-      mainAxisAlignment:
-          pw.MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
         pw.Text(
           label,
           style: pw.TextStyle(
-            fontWeight: gras
-                ? pw.FontWeight.bold
-                : pw.FontWeight.normal,
+            fontWeight: gras ? pw.FontWeight.bold : pw.FontWeight.normal,
           ),
         ),
 
         pw.Text(
           "${montant.toStringAsFixed(0)} FCFA",
           style: pw.TextStyle(
-            fontWeight: gras
-                ? pw.FontWeight.bold
-                : pw.FontWeight.normal,
+            fontWeight: gras ? pw.FontWeight.bold : pw.FontWeight.normal,
           ),
         ),
       ],
@@ -298,21 +252,15 @@ static Future<pw.ThemeData>
         totalPaye != null ||
         resteAPayer != null;
 
-    final montantCommandeFinal =
-        montantCommande ?? montant;
+    final montantCommandeFinal = montantCommande ?? montant;
 
-    final paiementEffectueFinal =
-        paiementEffectue ?? montant;
+    final paiementEffectueFinal = paiementEffectue ?? montant;
 
-    final totalPayeFinal =
-        totalPaye ?? paiementEffectueFinal;
+    final totalPayeFinal = totalPaye ?? paiementEffectueFinal;
 
-    final resteCalcule =
-        montantCommandeFinal - totalPayeFinal;
+    final resteCalcule = montantCommandeFinal - totalPayeFinal;
 
-    final resteFinal =
-        resteAPayer ??
-        (resteCalcule > 0 ? resteCalcule : 0);
+    final resteFinal = resteAPayer ?? (resteCalcule > 0 ? resteCalcule : 0);
 
     pdf.addPage(
       pw.MultiPage(
@@ -335,8 +283,7 @@ static Future<pw.ThemeData>
                 "REÇU DE PAIEMENT",
                 style: pw.TextStyle(
                   fontSize: 18,
-                  fontWeight:
-                      pw.FontWeight.bold,
+                  fontWeight: pw.FontWeight.bold,
                 ),
               ),
             ),
@@ -345,43 +292,26 @@ static Future<pw.ThemeData>
 
             pw.Divider(),
 
-            pw.Text(
-              "Commande : #$numeroCommande",
-            ),
+            pw.Text("Commande : #$numeroCommande"),
 
-            pw.Text(
-              "Client : $client",
-            ),
+            pw.Text("Client : $client"),
 
-            pw.Text(
-              "Téléphone : $telephone",
-            ),
+            pw.Text("Téléphone : $telephone"),
 
-            pw.Text(
-              "Date : $date",
-            ),
+            pw.Text("Date : $date"),
 
-            pw.Text(
-              "Mode de paiement : $modePaiement",
-            ),
+            pw.Text("Mode de paiement : $modePaiement"),
 
             pw.SizedBox(height: 20),
 
             if (articles.isEmpty)
               pw.Container(
                 width: double.infinity,
-                padding:
-                    const pw.EdgeInsets.all(15),
+                padding: const pw.EdgeInsets.all(15),
                 decoration: pw.BoxDecoration(
-                  border: pw.Border.all(
-                    color: PdfColors.grey400,
-                  ),
+                  border: pw.Border.all(color: PdfColors.grey400),
                 ),
-                child: pw.Center(
-                  child: pw.Text(
-                    "Aucun vêtement enregistré",
-                  ),
-                ),
+                child: pw.Center(child: pw.Text("Aucun vêtement enregistré")),
               )
             else
               _tableArticles(articles),
@@ -390,13 +320,10 @@ static Future<pw.ThemeData>
 
             if (afficherResumePaiement)
               pw.Container(
-                padding:
-                    const pw.EdgeInsets.all(12),
+                padding: const pw.EdgeInsets.all(12),
                 decoration: pw.BoxDecoration(
                   color: PdfColors.grey100,
-                  border: pw.Border.all(
-                    color: PdfColors.grey400,
-                  ),
+                  border: pw.Border.all(color: PdfColors.grey400),
                 ),
                 child: pw.Column(
                   children: [
@@ -407,25 +334,15 @@ static Future<pw.ThemeData>
 
                     pw.Divider(),
 
-                    _ligneMontant(
-                      "Paiement effectué",
-                      paiementEffectueFinal,
-                    ),
+                    _ligneMontant("Paiement effectué", paiementEffectueFinal),
 
                     pw.Divider(),
 
-                    _ligneMontant(
-                      "Total payé",
-                      totalPayeFinal,
-                    ),
+                    _ligneMontant("Total payé", totalPayeFinal),
 
                     pw.Divider(),
 
-                    _ligneMontant(
-                      "Reste à payer",
-                      resteFinal,
-                      gras: true,
-                    ),
+                    _ligneMontant("Reste à payer", resteFinal, gras: true),
                   ],
                 ),
               )
@@ -433,15 +350,13 @@ static Future<pw.ThemeData>
               pw.Divider(),
 
               pw.Align(
-                alignment:
-                    pw.Alignment.centerRight,
+                alignment: pw.Alignment.centerRight,
                 child: pw.Text(
                   "TOTAL : "
                   "${montant.toStringAsFixed(0)} FCFA",
                   style: pw.TextStyle(
                     fontSize: 18,
-                    fontWeight:
-                        pw.FontWeight.bold,
+                    fontWeight: pw.FontWeight.bold,
                   ),
                 ),
               ),
@@ -452,10 +367,7 @@ static Future<pw.ThemeData>
             pw.Center(
               child: pw.Text(
                 "Merci pour votre confiance !",
-                style: pw.TextStyle(
-                  fontStyle:
-                      pw.FontStyle.italic,
-                ),
+                style: pw.TextStyle(fontStyle: pw.FontStyle.italic),
               ),
             ),
           ];
@@ -464,8 +376,7 @@ static Future<pw.ThemeData>
     );
 
     await Printing.layoutPdf(
-      name:
-          "recu_commande_$numeroCommande.pdf",
+      name: "recu_commande_$numeroCommande.pdf",
       onLayout: (_) async {
         return pdf.save();
       },
@@ -514,8 +425,7 @@ static Future<pw.ThemeData>
                 "TICKET DE DÉPÔT",
                 style: pw.TextStyle(
                   fontSize: 18,
-                  fontWeight:
-                      pw.FontWeight.bold,
+                  fontWeight: pw.FontWeight.bold,
                 ),
               ),
             ),
@@ -524,43 +434,26 @@ static Future<pw.ThemeData>
 
             pw.Divider(),
 
-            pw.Text(
-              "Commande : #$numeroCommande",
-            ),
+            pw.Text("Commande : #$numeroCommande"),
 
-            pw.Text(
-              "Client : $client",
-            ),
+            pw.Text("Client : $client"),
 
-            pw.Text(
-              "Téléphone : $telephone",
-            ),
+            pw.Text("Téléphone : $telephone"),
 
-            pw.Text(
-              "Date : $date",
-            ),
+            pw.Text("Date : $date"),
 
-            pw.Text(
-              "Statut : $statut",
-            ),
+            pw.Text("Statut : $statut"),
 
             pw.SizedBox(height: 20),
 
             if (articles.isEmpty)
               pw.Container(
                 width: double.infinity,
-                padding:
-                    const pw.EdgeInsets.all(15),
+                padding: const pw.EdgeInsets.all(15),
                 decoration: pw.BoxDecoration(
-                  border: pw.Border.all(
-                    color: PdfColors.grey400,
-                  ),
+                  border: pw.Border.all(color: PdfColors.grey400),
                 ),
-                child: pw.Center(
-                  child: pw.Text(
-                    "Aucun vêtement enregistré",
-                  ),
-                ),
+                child: pw.Center(child: pw.Text("Aucun vêtement enregistré")),
               )
             else
               _tableArticles(articles),
@@ -570,15 +463,13 @@ static Future<pw.ThemeData>
             pw.Divider(),
 
             pw.Align(
-              alignment:
-                  pw.Alignment.centerRight,
+              alignment: pw.Alignment.centerRight,
               child: pw.Text(
                 "TOTAL : "
                 "${total.toStringAsFixed(0)} FCFA",
                 style: pw.TextStyle(
                   fontSize: 18,
-                  fontWeight:
-                      pw.FontWeight.bold,
+                  fontWeight: pw.FontWeight.bold,
                 ),
               ),
             ),
@@ -588,10 +479,7 @@ static Future<pw.ThemeData>
             pw.Center(
               child: pw.Text(
                 "Merci pour votre confiance !",
-                style: pw.TextStyle(
-                  fontStyle:
-                      pw.FontStyle.italic,
-                ),
+                style: pw.TextStyle(fontStyle: pw.FontStyle.italic),
               ),
             ),
           ];
@@ -600,8 +488,7 @@ static Future<pw.ThemeData>
     );
 
     await Printing.layoutPdf(
-      name:
-          "ticket_depot_commande_$numeroCommande.pdf",
+      name: "ticket_depot_commande_$numeroCommande.pdf",
       onLayout: (_) async {
         return pdf.save();
       },

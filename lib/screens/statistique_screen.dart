@@ -5,17 +5,13 @@ import '../services/session_service.dart';
 import '../services/statistique_service.dart';
 
 class StatistiqueScreen extends StatefulWidget {
-  const StatistiqueScreen({
-    super.key,
-  });
+  const StatistiqueScreen({super.key});
 
   @override
-  State<StatistiqueScreen> createState() =>
-      _StatistiqueScreenState();
+  State<StatistiqueScreen> createState() => _StatistiqueScreenState();
 }
 
-class _StatistiqueScreenState
-    extends State<StatistiqueScreen> {
+class _StatistiqueScreenState extends State<StatistiqueScreen> {
   StatistiquesResultat? statistiques;
 
   bool chargement = true;
@@ -46,9 +42,7 @@ class _StatistiqueScreenState
     }
 
     try {
-      final resultat =
-          await StatistiqueService.instance
-              .chargerStatistiques();
+      final resultat = await StatistiqueService.instance.chargerStatistiques();
 
       if (!mounted) return;
 
@@ -60,10 +54,7 @@ class _StatistiqueScreenState
       if (!mounted) return;
 
       setState(() {
-        erreur = e.toString().replaceFirst(
-              'Exception: ',
-              '',
-            );
+        erreur = e.toString().replaceFirst('Exception: ', '');
 
         chargement = false;
       });
@@ -78,55 +69,34 @@ class _StatistiqueScreenState
   }) {
     return Card(
       elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.circular(15),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: Container(
         width: double.infinity,
-        padding:
-            const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 32,
-              color: couleur,
-            ),
+            Icon(icon, size: 32, color: couleur),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             Text(
               titre,
-              textAlign:
-                  TextAlign.center,
-              style:
-                  const TextStyle(
-                fontSize: 16,
-                fontWeight:
-                    FontWeight.bold,
-              ),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 valeur,
-                textAlign:
-                    TextAlign.center,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 20,
                   color: couleur,
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -136,9 +106,7 @@ class _StatistiqueScreenState
     );
   }
 
-  Widget buildGraphique(
-    StatistiquesResultat stats,
-  ) {
+  Widget buildGraphique(StatistiquesResultat stats) {
     final valeurs = [
       stats.nombreClients,
       stats.nombreCommandes,
@@ -146,126 +114,124 @@ class _StatistiqueScreenState
       stats.nombrePaiements,
     ];
 
-    final maximum =
-        valeurs.fold<int>(
+    final maximum = valeurs.fold<int>(
       0,
-      (max, valeur) =>
-          valeur > max
-              ? valeur
-              : max,
+      (max, valeur) => valeur > max ? valeur : max,
     );
 
-    final hauteurMax =
-        maximum < 5
-            ? 5.0
-            : (maximum + 2)
-                .toDouble();
+    double intervalle;
+
+    if (maximum <= 10) {
+      intervalle = 1;
+    } else if (maximum <= 50) {
+      intervalle = 5;
+    } else if (maximum <= 100) {
+      intervalle = 10;
+    } else if (maximum <= 200) {
+      intervalle = 20;
+    } else if (maximum <= 500) {
+      intervalle = 50;
+    } else if (maximum <= 1000) {
+      intervalle = 100;
+    } else {
+      intervalle = ((maximum / 5) / 100).ceil() * 100.0;
+    }
+
+    final hauteurMax = maximum == 0
+        ? 5.0
+        : ((maximum / intervalle).ceil() + 1) * intervalle;
 
     return Card(
       elevation: 4,
-      shape:
-          RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding:
-            const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(12, 16, 16, 12),
         child: SizedBox(
-          height: 250,
+          height: 280,
           child: BarChart(
             BarChartData(
+              minY: 0,
               maxY: hauteurMax,
+              alignment: BarChartAlignment.spaceAround,
 
-              borderData:
-                  FlBorderData(
-                show: false,
-              ),
+              borderData: FlBorderData(show: false),
 
-              gridData:
-                  const FlGridData(
+              gridData: FlGridData(
                 show: true,
+                drawVerticalLine: false,
+                horizontalInterval: intervalle,
               ),
 
-              titlesData:
-                  FlTitlesData(
-                topTitles:
-                    const AxisTitles(
-                  sideTitles:
-                      SideTitles(
-                    showTitles: false,
-                  ),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
                 ),
 
-                rightTitles:
-                    const AxisTitles(
-                  sideTitles:
-                      SideTitles(
-                    showTitles: false,
-                  ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
                 ),
 
-                leftTitles:
-                    const AxisTitles(
-                  sideTitles:
-                      SideTitles(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
                     showTitles: true,
-                    reservedSize: 30,
-                  ),
-                ),
-
-                bottomTitles:
-                    AxisTitles(
-                  sideTitles:
-                      SideTitles(
-                    showTitles: true,
-                    getTitlesWidget:
-                        (
-                      value,
-                      meta,
-                    ) {
-                      String texte;
-
-                      switch (
-                          value.toInt()) {
-                        case 0:
-                          texte =
-                              'Clients';
-                          break;
-
-                        case 1:
-                          texte =
-                              'Commandes';
-                          break;
-
-                        case 2:
-                          texte =
-                              'Vêtements';
-                          break;
-
-                        case 3:
-                          texte =
-                              'Paiements';
-                          break;
-
-                        default:
-                          return const SizedBox();
+                    reservedSize: 44,
+                    interval: intervalle,
+                    getTitlesWidget: (value, meta) {
+                      if (value < 0 || value > hauteurMax) {
+                        return const SizedBox.shrink();
                       }
 
                       return Padding(
-                        padding:
-                            const EdgeInsets
-                                .only(
-                          top: 8,
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Text(
+                          value.toInt().toString(),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
+                      );
+                    },
+                  ),
+                ),
+
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 38,
+                    getTitlesWidget: (value, meta) {
+                      String texte;
+
+                      switch (value.toInt()) {
+                        case 0:
+                          texte = 'Clients';
+                          break;
+
+                        case 1:
+                          texte = 'Commandes';
+                          break;
+
+                        case 2:
+                          texte = 'Vêtements';
+                          break;
+
+                        case 3:
+                          texte = 'Paiements';
+                          break;
+
+                        default:
+                          return const SizedBox.shrink();
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           texte,
-                          style:
-                              const TextStyle(
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
                             fontSize: 11,
-                            fontWeight:
-                                FontWeight
-                                    .bold,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       );
@@ -274,40 +240,27 @@ class _StatistiqueScreenState
                 ),
               ),
 
-              barTouchData:
-                  BarTouchData(
+              barTouchData: BarTouchData(
                 enabled: true,
-                touchTooltipData:
-                    BarTouchTooltipData(
-                  getTooltipItem:
-                      (
-                    group,
-                    groupIndex,
-                    rod,
-                    rodIndex,
-                  ) {
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
                     String titre;
 
-                    switch (
-                        group.x) {
+                    switch (group.x) {
                       case 0:
-                        titre =
-                            'Clients';
+                        titre = 'Clients';
                         break;
 
                       case 1:
-                        titre =
-                            'Commandes';
+                        titre = 'Commandes';
                         break;
 
                       case 2:
-                        titre =
-                            'Vêtements';
+                        titre = 'Vêtements';
                         break;
 
                       case 3:
-                        titre =
-                            'Paiements';
+                        titre = 'Paiements';
                         break;
 
                       default:
@@ -315,14 +268,10 @@ class _StatistiqueScreenState
                     }
 
                     return BarTooltipItem(
-                      '$titre\n'
-                      '${rod.toY.toInt()}',
+                      '$titre\n${rod.toY.toInt()}',
                       const TextStyle(
-                        color:
-                            Colors.white,
-                        fontWeight:
-                            FontWeight
-                                .bold,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
                     );
                   },
@@ -332,41 +281,29 @@ class _StatistiqueScreenState
               barGroups: [
                 _creerBarre(
                   x: 0,
-                  valeur: stats
-                      .nombreClients
-                      .toDouble(),
-                  couleur:
-                      Colors.blue,
+                  valeur: stats.nombreClients.toDouble(),
+                  couleur: Colors.blue,
                   maxY: hauteurMax,
                 ),
 
                 _creerBarre(
                   x: 1,
-                  valeur: stats
-                      .nombreCommandes
-                      .toDouble(),
-                  couleur:
-                      Colors.orange,
+                  valeur: stats.nombreCommandes.toDouble(),
+                  couleur: Colors.orange,
                   maxY: hauteurMax,
                 ),
 
                 _creerBarre(
                   x: 2,
-                  valeur: stats
-                      .nombreVetements
-                      .toDouble(),
-                  couleur:
-                      Colors.green,
+                  valeur: stats.nombreVetements.toDouble(),
+                  couleur: Colors.green,
                   maxY: hauteurMax,
                 ),
 
                 _creerBarre(
                   x: 3,
-                  valeur: stats
-                      .nombrePaiements
-                      .toDouble(),
-                  couleur:
-                      Colors.purple,
+                  valeur: stats.nombrePaiements.toDouble(),
+                  couleur: Colors.purple,
                   maxY: hauteurMax,
                 ),
               ],
@@ -390,16 +327,11 @@ class _StatistiqueScreenState
           toY: valeur,
           color: couleur,
           width: 25,
-          borderRadius:
-              BorderRadius.circular(
-            6,
-          ),
-          backDrawRodData:
-              BackgroundBarChartRodData(
+          borderRadius: BorderRadius.circular(6),
+          backDrawRodData: BackgroundBarChartRodData(
             show: true,
             toY: maxY,
-            color:
-                Colors.grey.shade200,
+            color: Colors.grey.shade200,
           ),
         ),
       ],
@@ -409,50 +341,33 @@ class _StatistiqueScreenState
   Widget _buildAccesRefuse() {
     return Center(
       child: Padding(
-        padding:
-            const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 80,
               height: 80,
-              decoration:
-                  BoxDecoration(
-                color:
-                    Colors.orange
-                        .shade50,
-                shape:
-                    BoxShape.circle,
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons
-                    .admin_panel_settings_rounded,
+                Icons.admin_panel_settings_rounded,
                 size: 44,
-                color:
-                    Colors.orange,
+                color: Colors.orange,
               ),
             ),
 
-            const SizedBox(
-              height: 20,
-            ),
+            const SizedBox(height: 20),
 
             const Text(
               'Accès réservé au propriétaire',
-              textAlign:
-                  TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight:
-                    FontWeight.bold,
-              ),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
 
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 10),
 
             Text(
               'Les statistiques et les '
@@ -460,14 +375,8 @@ class _StatistiqueScreenState
               'du pressing ne sont pas '
               'accessibles avec un compte '
               'employé.',
-              textAlign:
-                  TextAlign.center,
-              style: TextStyle(
-                color:
-                    Colors.grey
-                        .shade700,
-                fontSize: 15,
-              ),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 15),
             ),
           ],
         ),
@@ -476,286 +385,167 @@ class _StatistiqueScreenState
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     if (!SessionService.estProprietaire) {
       return Scaffold(
-        appBar: AppBar(
-          title:
-              const Text(
-            'Statistiques',
-          ),
-          centerTitle: true,
-        ),
-        body:
-            _buildAccesRefuse(),
+        appBar: AppBar(title: const Text('Statistiques'), centerTitle: true),
+        body: _buildAccesRefuse(),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title:
-            const Text(
-          'Statistiques',
-        ),
+        title: const Text('Statistiques'),
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip:
-                'Actualiser',
-            onPressed:
-                chargerStatistiques,
-            icon:
-                const Icon(
-              Icons.refresh,
-            ),
+            tooltip: 'Actualiser',
+            onPressed: chargerStatistiques,
+            icon: const Icon(Icons.refresh),
           ),
         ],
       ),
 
       body: chargement
-          ? const Center(
-              child:
-                  CircularProgressIndicator(),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : erreur != null
-              ? Center(
-                  child: Padding(
-                    padding:
-                        const EdgeInsets
-                            .all(
-                      24,
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 55,
                     ),
-                    child: Column(
-                      mainAxisSize:
-                          MainAxisSize
-                              .min,
-                      children: [
-                        const Icon(
-                          Icons
-                              .error_outline,
-                          color:
-                              Colors.red,
-                          size: 55,
-                        ),
 
-                        const SizedBox(
-                          height: 12,
-                        ),
+                    const SizedBox(height: 12),
 
-                        Text(
-                          erreur!,
-                          textAlign:
-                              TextAlign
-                                  .center,
-                        ),
+                    Text(erreur!, textAlign: TextAlign.center),
 
-                        const SizedBox(
-                          height: 16,
-                        ),
+                    const SizedBox(height: 16),
 
-                        FilledButton.icon(
-                          onPressed:
-                              chargerStatistiques,
-                          icon:
-                              const Icon(
-                            Icons
-                                .refresh,
-                          ),
-                          label:
-                              const Text(
-                            'Réessayer',
-                          ),
-                        ),
-                      ],
+                    FilledButton.icon(
+                      onPressed: chargerStatistiques,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Réessayer'),
                     ),
-                  ),
-                )
-              : _buildContenu(),
+                  ],
+                ),
+              ),
+            )
+          : _buildContenu(),
     );
   }
 
   Widget _buildContenu() {
-    final stats =
-        statistiques;
+    final stats = statistiques;
 
     if (stats == null) {
-      return const Center(
-        child: Text(
-          'Aucune statistique disponible.',
-        ),
-      );
+      return const Center(child: Text('Aucune statistique disponible.'));
     }
 
     return RefreshIndicator(
-      onRefresh:
-          chargerStatistiques,
+      onRefresh: chargerStatistiques,
       child: ListView(
-        padding:
-            const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         children: [
           GridView.count(
             shrinkWrap: true,
-            physics:
-                const NeverScrollableScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio:
-                1.05,
+            childAspectRatio: 1.05,
             children: [
               buildStatCard(
-                icon:
-                    Icons.people,
-                titre:
-                    'Clients',
-                valeur: stats
-                    .nombreClients
-                    .toString(),
-                couleur:
-                    Colors.blue,
+                icon: Icons.people,
+                titre: 'Clients',
+                valeur: stats.nombreClients.toString(),
+                couleur: Colors.blue,
               ),
 
               buildStatCard(
-                icon:
-                    Icons.shopping_bag,
-                titre:
-                    'Commandes',
-                valeur: stats
-                    .nombreCommandes
-                    .toString(),
-                couleur:
-                    Colors.orange,
+                icon: Icons.shopping_bag,
+                titre: 'Commandes',
+                valeur: stats.nombreCommandes.toString(),
+                couleur: Colors.orange,
               ),
 
               buildStatCard(
-                icon:
-                    Icons.checkroom,
-                titre:
-                    'Vêtements',
-                valeur: stats
-                    .nombreVetements
-                    .toString(),
-                couleur:
-                    Colors.green,
+                icon: Icons.checkroom,
+                titre: 'Vêtements',
+                valeur: stats.nombreVetements.toString(),
+                couleur: Colors.green,
               ),
 
               buildStatCard(
-                icon:
-                    Icons.payment,
-                titre:
-                    'Paiements',
-                valeur: stats
-                    .nombrePaiements
-                    .toString(),
-                couleur:
-                    Colors.purple,
+                icon: Icons.payment,
+                titre: 'Paiements',
+                valeur: stats.nombrePaiements.toString(),
+                couleur: Colors.purple,
               ),
 
               buildStatCard(
-                icon:
-                    Icons.hourglass_empty,
-                titre:
-                    'En attente',
-                valeur: stats
-                    .enAttente
-                    .toString(),
-                couleur:
-                    Colors.orange,
+                icon: Icons.hourglass_empty,
+                titre: 'En attente',
+                valeur: stats.enAttente.toString(),
+                couleur: Colors.orange,
               ),
 
               buildStatCard(
-                icon:
-                    Icons
-                        .local_laundry_service,
-                titre:
-                    'En cours',
-                valeur: stats
-                    .enCours
-                    .toString(),
-                couleur:
-                    Colors.blue,
+                icon: Icons.local_laundry_service,
+                titre: 'En cours',
+                valeur: stats.enCours.toString(),
+                couleur: Colors.blue,
               ),
 
               buildStatCard(
-                icon:
-                    Icons.task_alt,
-                titre:
-                    'Terminées',
-                valeur: stats
-                    .terminees
-                    .toString(),
-                couleur:
-                    Colors.green,
+                icon: Icons.task_alt,
+                titre: 'Terminées',
+                valeur: stats.terminees.toString(),
+                couleur: Colors.green,
               ),
 
               buildStatCard(
-                icon:
-                    Icons.inventory,
-                titre:
-                    'Livrées',
-                valeur: stats
-                    .livrees
-                    .toString(),
-                couleur:
-                    Colors.teal,
+                icon: Icons.inventory,
+                titre: 'Livrées',
+                valeur: stats.livrees.toString(),
+                couleur: Colors.teal,
               ),
             ],
           ),
 
-          const SizedBox(
-            height: 24,
-          ),
+          const SizedBox(height: 24),
 
           const Text(
             'Vue générale',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight:
-                  FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
 
-          const SizedBox(
-            height: 12,
-          ),
+          const SizedBox(height: 12),
 
-          buildGraphique(
-            stats,
-          ),
+          buildGraphique(stats),
 
-          const SizedBox(
-            height: 24,
-          ),
+          const SizedBox(height: 24),
 
           const Text(
             'Finances',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight:
-                  FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
 
-          const SizedBox(
-            height: 12,
-          ),
+          const SizedBox(height: 12),
 
           buildStatCard(
-            icon:
-                Icons.payments_rounded,
-            titre:
-                "Chiffre d'affaires encaissé",
-            valeur:
-                '${stats.chiffreAffaires.toStringAsFixed(0)} FCFA',
-            couleur:
-                Colors.green,
+            icon: Icons.payments_rounded,
+            titre: "Chiffre d'affaires encaissé",
+            valeur: '${stats.chiffreAffaires.toStringAsFixed(0)} FCFA',
+            couleur: Colors.green,
           ),
 
-          const SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 20),
         ],
       ),
     );

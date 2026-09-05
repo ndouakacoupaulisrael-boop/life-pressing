@@ -1,9 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:pressing_app/services/session_service.dart';
 
 void main() {
-  setUp(SessionService.fermerSession);
-  tearDown(SessionService.fermerSession);
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await SessionService.fermerSession();
+  });
+
+  tearDown(() async {
+    await SessionService.fermerSession();
+  });
 
   test('la session est fermée par défaut', () {
     expect(SessionService.estConnecte, isFalse);
@@ -38,13 +48,13 @@ void main() {
     expect(SessionService.roleTexte, 'Employé');
   });
 
-  test('ferme complètement la session', () {
+  test('ferme complètement la session', () async {
     SessionService.ouvrirSession(
       utilisateur: 'proprietaire',
       role: RoleUtilisateur.proprietaire,
     );
 
-    SessionService.fermerSession();
+    await SessionService.fermerSession();
 
     expect(SessionService.estConnecte, isFalse);
     expect(SessionService.utilisateur, isNull);

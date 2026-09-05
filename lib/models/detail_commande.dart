@@ -10,6 +10,7 @@ class DetailCommande {
 
   // Couleur sélectionnée par l’employé.
   final String couleur;
+  final String matiere;
 
   final int quantite;
 
@@ -22,6 +23,7 @@ class DetailCommande {
     this.vetementId,
     required this.vetement,
     this.couleur = 'Non précisée',
+    this.matiere = 'Non précisée',
     required this.quantite,
     required this.prix,
   });
@@ -38,29 +40,22 @@ class DetailCommande {
       'couleur': couleur,
       'quantite': quantite,
       'prix': prix,
+      'matiere': matiere,
     };
   }
 
-  factory DetailCommande.fromMap(
-    Map<String, dynamic> map,
-  ) {
+  factory DetailCommande.fromMap(Map<String, dynamic> map) {
     return DetailCommande(
-      id: map['id'] == null
-          ? null
-          : (map['id'] as num).toInt(),
-      commandeId:
-          (map['commandeId'] as num).toInt(),
+      id: map['id'] == null ? null : (map['id'] as num).toInt(),
+      commandeId: (map['commandeId'] as num).toInt(),
       vetementId: map['vetementId'] == null
           ? null
           : (map['vetementId'] as num).toInt(),
-      vetement:
-          map['vetement']?.toString() ?? '',
-      couleur:
-          map['couleur']?.toString() ?? 'Non précisée',
-      quantite:
-          (map['quantite'] as num).toInt(),
-      prix:
-          (map['prix'] as num).toDouble(),
+      vetement: map['vetement']?.toString() ?? '',
+      couleur: map['couleur']?.toString() ?? 'Non précisée',
+      quantite: (map['quantite'] as num).toInt(),
+      prix: (map['prix'] as num).toDouble(),
+      matiere: map['matiere']?.toString() ?? 'Non précisée',
     );
   }
 
@@ -72,6 +67,7 @@ class DetailCommande {
     String? couleur,
     int? quantite,
     double? prix,
+    String? matiere,
   }) {
     return DetailCommande(
       id: id ?? this.id,
@@ -81,6 +77,7 @@ class DetailCommande {
       couleur: couleur ?? this.couleur,
       quantite: quantite ?? this.quantite,
       prix: prix ?? this.prix,
+      matiere: matiere ?? this.matiere,
     );
   }
 }
