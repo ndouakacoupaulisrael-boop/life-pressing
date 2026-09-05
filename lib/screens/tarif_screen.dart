@@ -677,6 +677,69 @@ class _TarifScreenState extends State<TarifScreen> {
   }
 
   // ============================================================
+  // SUPPRESSION
+  // ============================================================
+
+  Future<void> supprimerTarif(Tarif tarif) async {
+    final id = tarif.id;
+
+    if (id == null) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de supprimer ce tarif.')),
+      );
+      return;
+    }
+
+    final confirmation = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Supprimer le tarif ?'),
+          content: Text(
+            'Voulez-vous vraiment supprimer "${tarif.nom}" ?\n\n'
+            'Cette action est définitive.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Supprimer'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmation != true) {
+      return;
+    }
+
+    try {
+      await TarifService.instance.supprimerTarif(id);
+
+      await chargerTarifs();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tarif supprimé avec succès.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur : $e')));
+    }
+  }
+
+  // ============================================================
   // INTERFACE
   // ============================================================
 
@@ -730,20 +793,35 @@ class _TarifScreenState extends State<TarifScreen> {
                         ' • ${afficherType(tarif.type)}'
                         ' • ${afficherModeCalcul(tarif.modeCalcul)}',
                       ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            afficherValeur(tarif),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                afficherValeur(tarif),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                tarif.actif ? 'Actif' : 'Inactif',
+                                style: TextStyle(
+                                  color: tarif.actif
+                                      ? Colors.green
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            tarif.actif ? 'Actif' : 'Inactif',
-                            style: TextStyle(
-                              color: tarif.actif ? Colors.green : Colors.grey,
-                            ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Supprimer',
+                            onPressed: () => supprimerTarif(tarif),
+                            icon: const Icon(Icons.delete_outline),
                           ),
                         ],
                       ),
