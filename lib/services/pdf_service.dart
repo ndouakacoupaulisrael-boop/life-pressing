@@ -136,12 +136,11 @@ class PdfService {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.7),
       columnWidths: {
-        0: const pw.FlexColumnWidth(2.4),
-        1: const pw.FlexColumnWidth(1.5),
-        2: const pw.FlexColumnWidth(1.5),
-        3: const pw.FlexColumnWidth(0.7),
-        4: const pw.FlexColumnWidth(1.5),
-        5: const pw.FlexColumnWidth(1.7),
+        0: const pw.FlexColumnWidth(2.7),
+        1: const pw.FlexColumnWidth(1.8),
+        2: const pw.FlexColumnWidth(0.8),
+        3: const pw.FlexColumnWidth(1.6),
+        4: const pw.FlexColumnWidth(1.8),
       },
       children: [
         pw.TableRow(
@@ -149,7 +148,6 @@ class PdfService {
           children: [
             _celluleEntete("Vêtement"),
             _celluleEntete("Couleur"),
-            _celluleEntete("Matière"),
             _celluleEntete("Qté"),
             _celluleEntete("Prix"),
             _celluleEntete("Total"),
@@ -162,8 +160,6 @@ class PdfService {
               _cellule(detail.vetement),
 
               _cellule(detail.couleur),
-
-              _cellule(detail.matiere),
 
               _cellule(
                 detail.quantite.toString(),
@@ -262,6 +258,15 @@ class PdfService {
 
     final resteFinal = resteAPayer ?? (resteCalcule > 0 ? resteCalcule : 0);
 
+    // Une commande est considérée comme soldée uniquement
+    // lorsque les informations détaillées de paiement sont disponibles
+    // et que le total payé couvre le montant de la commande.
+    final estSolde =
+        afficherResumePaiement &&
+        montantCommandeFinal > 0 &&
+        resteFinal <= 0.01 &&
+        totalPayeFinal >= montantCommandeFinal - 0.01;
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -334,7 +339,7 @@ class PdfService {
 
                     pw.Divider(),
 
-                    _ligneMontant("Paiement effectué", paiementEffectueFinal),
+                    _ligneMontant("Dernier paiement", paiementEffectueFinal),
 
                     pw.Divider(),
 
@@ -362,7 +367,91 @@ class PdfService {
               ),
             ],
 
-            pw.SizedBox(height: 40),
+            if (estSolde) ...[
+              pw.SizedBox(height: 14),
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 12,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.green50,
+                  border: pw.Border.all(color: PdfColors.green700, width: 1.5),
+                ),
+                child: pw.Center(
+                  child: pw.Text(
+                    "SOLDÉ",
+                    style: pw.TextStyle(
+                      color: PdfColors.green800,
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
+            pw.SizedBox(height: 24),
+
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(14),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                border: pw.Border.all(color: PdfColors.grey400, width: 0.8),
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    "CONDITIONS IMPORTANTES",
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                  pw.SizedBox(height: 9),
+                  pw.Text(
+                    "1. Les articles doivent être retirés dans un délai maximum d'un (1) mois à compter de la date prévue de livraison. Au-delà, des frais de magasinage de 200 FCFA par jour seront appliqués.",
+                    style: const pw.TextStyle(fontSize: 9),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    "2. Passé ce délai d'un mois, la conservation des articles ne peut plus être garantie.",
+                    style: const pw.TextStyle(fontSize: 9),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    "3. En cas de perte ou de dommage imputable au pressing, l'indemnisation est limitée à 20 fois le prix du lavage de l'article concerné.",
+                    style: const pw.TextStyle(fontSize: 9),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    "4. Les retraits partiels ne sont pas acceptés. Les articles d'une même commande doivent être retirés ensemble.",
+                    style: const pw.TextStyle(fontSize: 9),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    "5. Les taches persistantes et les risques de décoloration de certains vêtements ne peuvent être garantis.",
+                    style: const pw.TextStyle(fontSize: 9),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    "6. Toute réclamation doit être faite dans les 24 heures suivant le retrait des articles.",
+                    style: const pw.TextStyle(fontSize: 9),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    "7. Les boutons, fermetures éclair et autres accessoires fragiles ne sont pas garantis.",
+                    style: const pw.TextStyle(fontSize: 9),
+                  ),
+                ],
+              ),
+            ),
+
+            pw.SizedBox(height: 20),
 
             pw.Center(
               child: pw.Text(
