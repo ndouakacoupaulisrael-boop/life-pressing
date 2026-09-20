@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:pressing_app/models/charge.dart';
 import 'package:pressing_app/services/charge_service.dart';
+import 'package:pressing_app/services/session_service.dart';
 
 Matcher exceptionContenant(String texte) {
   return throwsA(
@@ -14,6 +17,22 @@ Matcher exceptionContenant(String texte) {
 
 void main() {
   final service = ChargeService.instance;
+
+  setUp(() async {
+    // Base SharedPreferences simulée pour les tests.
+    SharedPreferences.setMockInitialValues({});
+
+    // Les charges sont réservées au propriétaire.
+    // On ouvre donc une session propriétaire avant chaque test.
+    await SessionService.ouvrirSession(
+      utilisateur: 'proprietaire_test',
+      role: RoleUtilisateur.proprietaire,
+    );
+  });
+
+  tearDown(() async {
+    await SessionService.fermerSession();
+  });
 
   group('ChargeService.ajouterCharge', () {
     test('refuse un libellé vide', () async {
@@ -153,6 +172,27 @@ void main() {
       await expectLater(
         service.supprimerCharge(charge),
         exceptionContenant('Charge invalide'),
+      );
+    });
+  });
+
+  group('ChargeService sécurité', () {
+    test('refuse la gestion des charges à un employé', () async {
+      await SessionService.fermerSession();
+
+      await SessionService.ouvrirSession(
+        utilisateur: 'employe_test',
+        role: RoleUtilisateur.employe,
+      );
+
+      await expectLater(
+        service.ajouterCharge(
+          libelle: 'Facture CIE',
+          categorie: 'Électricité',
+          montant: 5000,
+          date: '2026-08-15',
+        ),
+        exceptionContenant('réservée au propriétaire'),
       );
     });
   });

@@ -13,10 +13,35 @@ class StatistiqueScreen extends StatefulWidget {
 
 class _StatistiqueScreenState extends State<StatistiqueScreen> {
   StatistiquesResultat? statistiques;
+  AnalyseFinanciereResultat? analyseFinanciere;
 
   bool chargement = true;
+  bool chargementAnalyse = false;
 
   String? erreur;
+  String? erreurAnalyse;
+
+  TypeRevenuFinancier typeRevenu = TypeRevenuFinancier.encaissements;
+
+  TypePeriodeFinanciere typePeriode = TypePeriodeFinanciere.mois;
+
+  int anneeSelectionnee = DateTime.now().year;
+  int moisSelectionne = DateTime.now().month;
+
+  static const List<String> nomsMois = [
+    'Janvier',
+    'Février',
+    'Mars',
+    'Avril',
+    'Mai',
+    'Juin',
+    'Juillet',
+    'Août',
+    'Septembre',
+    'Octobre',
+    'Novembre',
+    'Décembre',
+  ];
 
   @override
   void initState() {
@@ -28,6 +53,10 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
       chargement = false;
     }
   }
+
+  // ============================================================
+  // CHARGEMENT GÉNÉRAL
+  // ============================================================
 
   Future<void> chargerStatistiques() async {
     if (!SessionService.estProprietaire) {
@@ -44,10 +73,21 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
     try {
       final resultat = await StatistiqueService.instance.chargerStatistiques();
 
+      final analyse = await StatistiqueService.instance
+          .chargerAnalyseFinanciere(
+            typeRevenu: typeRevenu,
+            typePeriode: typePeriode,
+            annee: anneeSelectionnee,
+            mois: typePeriode == TypePeriodeFinanciere.mois
+                ? moisSelectionne
+                : null,
+          );
+
       if (!mounted) return;
 
       setState(() {
         statistiques = resultat;
+        analyseFinanciere = analyse;
         chargement = false;
       });
     } catch (e) {
@@ -60,6 +100,71 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
       });
     }
   }
+
+  // ============================================================
+  // ANALYSE FINANCIÈRE
+  // ============================================================
+
+  Future<void> chargerAnalyseFinanciere() async {
+    if (!SessionService.estProprietaire) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        chargementAnalyse = true;
+        erreurAnalyse = null;
+      });
+    }
+
+    try {
+      final resultat = await StatistiqueService.instance
+          .chargerAnalyseFinanciere(
+            typeRevenu: typeRevenu,
+            typePeriode: typePeriode,
+            annee: anneeSelectionnee,
+            mois: typePeriode == TypePeriodeFinanciere.mois
+                ? moisSelectionne
+                : null,
+          );
+
+      if (!mounted) return;
+
+      setState(() {
+        analyseFinanciere = resultat;
+        chargementAnalyse = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        erreurAnalyse = e.toString().replaceFirst('Exception: ', '');
+
+        chargementAnalyse = false;
+      });
+    }
+  }
+
+  // ============================================================
+  // FORMATAGE
+  // ============================================================
+
+  String formatMontant(double montant) {
+    return '${montant.toStringAsFixed(0)} FCFA';
+  }
+
+  String libellePeriode() {
+    if (typePeriode == TypePeriodeFinanciere.annee) {
+      return 'Année $anneeSelectionnee';
+    }
+
+    return '${nomsMois[moisSelectionne - 1]} '
+        '$anneeSelectionnee';
+  }
+
+  // ============================================================
+  // CARTE STATISTIQUE
+  // ============================================================
 
   Widget buildStatCard({
     required IconData icon,
@@ -105,6 +210,10 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
       ),
     );
   }
+
+  // ============================================================
+  // GRAPHIQUE GÉNÉRAL
+  // ============================================================
 
   Widget buildGraphique(StatistiquesResultat stats) {
     final valeurs = [
@@ -152,6 +261,7 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
             BarChartData(
               minY: 0,
               maxY: hauteurMax,
+
               alignment: BarChartAlignment.spaceAround,
 
               borderData: FlBorderData(show: false),
@@ -268,7 +378,8 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
                     }
 
                     return BarTooltipItem(
-                      '$titre\n${rod.toY.toInt()}',
+                      '$titre\n'
+                      '${rod.toY.toInt()}',
                       const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -338,6 +449,254 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
     );
   }
 
+  // ============================================================
+  // ANALYSE FINANCIÈRE
+  // ============================================================
+
+  Widget buildAnalyseFinanciere() {
+    final analyse = analyseFinanciere;
+
+    final annees = [
+      for (int annee = 2020; annee <= DateTime.now().year + 5; annee++) annee,
+    ];
+
+    return Card(
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Analyse financière',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 6),
+
+            Text(
+              'Bénéfice = revenus − charges',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+
+            const SizedBox(height: 20),
+
+            const Text(
+              'Période',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 8),
+
+            Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Mois'),
+                  selected: typePeriode == TypePeriodeFinanciere.mois,
+                  onSelected: (_) {
+                    setState(() {
+                      typePeriode = TypePeriodeFinanciere.mois;
+                    });
+
+                    chargerAnalyseFinanciere();
+                  },
+                ),
+
+                ChoiceChip(
+                  label: const Text('Année'),
+                  selected: typePeriode == TypePeriodeFinanciere.annee,
+                  onSelected: (_) {
+                    setState(() {
+                      typePeriode = TypePeriodeFinanciere.annee;
+                    });
+
+                    chargerAnalyseFinanciere();
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                if (typePeriode == TypePeriodeFinanciere.mois) ...[
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      key: ValueKey('mois-$moisSelectionne'),
+                      initialValue: moisSelectionne,
+                      decoration: const InputDecoration(
+                        labelText: 'Mois',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        for (int i = 1; i <= 12; i++)
+                          DropdownMenuItem(
+                            value: i,
+                            child: Text(nomsMois[i - 1]),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+
+                        setState(() {
+                          moisSelectionne = value;
+                        });
+
+                        chargerAnalyseFinanciere();
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+                ],
+
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    key: ValueKey('annee-$anneeSelectionnee'),
+                    initialValue: anneeSelectionnee,
+                    decoration: const InputDecoration(
+                      labelText: 'Année',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: annees
+                        .map(
+                          (annee) => DropdownMenuItem<int>(
+                            value: annee,
+                            child: Text(annee.toString()),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+
+                      setState(() {
+                        anneeSelectionnee = value;
+                      });
+
+                      chargerAnalyseFinanciere();
+                    },
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            const Text(
+              'Revenus basés sur',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 8),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  avatar: const Icon(Icons.payments, size: 18),
+                  label: const Text('Encaissements'),
+                  selected: typeRevenu == TypeRevenuFinancier.encaissements,
+                  onSelected: (_) {
+                    setState(() {
+                      typeRevenu = TypeRevenuFinancier.encaissements;
+                    });
+
+                    chargerAnalyseFinanciere();
+                  },
+                ),
+
+                ChoiceChip(
+                  avatar: const Icon(Icons.receipt_long, size: 18),
+                  label: const Text('Commandes'),
+                  selected: typeRevenu == TypeRevenuFinancier.commandes,
+                  onSelected: (_) {
+                    setState(() {
+                      typeRevenu = TypeRevenuFinancier.commandes;
+                    });
+
+                    chargerAnalyseFinanciere();
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_month),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      libellePeriode(),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            if (chargementAnalyse)
+              const Center(child: CircularProgressIndicator())
+            else if (erreurAnalyse != null)
+              Text(erreurAnalyse!, style: const TextStyle(color: Colors.red))
+            else if (analyse != null) ...[
+              buildStatCard(
+                icon: typeRevenu == TypeRevenuFinancier.encaissements
+                    ? Icons.payments
+                    : Icons.receipt_long,
+                titre: typeRevenu == TypeRevenuFinancier.encaissements
+                    ? 'Revenus encaissés'
+                    : 'Valeur des commandes',
+                valeur: formatMontant(analyse.revenus),
+                couleur: Colors.green,
+              ),
+
+              const SizedBox(height: 10),
+
+              buildStatCard(
+                icon: Icons.money_off,
+                titre: 'Charges',
+                valeur: formatMontant(analyse.charges),
+                couleur: Colors.red,
+              ),
+
+              const SizedBox(height: 10),
+
+              buildStatCard(
+                icon: analyse.benefice >= 0
+                    ? Icons.trending_up
+                    : Icons.trending_down,
+                titre: analyse.benefice >= 0 ? 'Bénéfice' : 'Perte',
+                valeur: formatMontant(analyse.benefice),
+                couleur: analyse.benefice >= 0 ? Colors.green : Colors.red,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACCÈS REFUSÉ
+  // ============================================================
+
   Widget _buildAccesRefuse() {
     return Center(
       child: Padding(
@@ -383,6 +742,10 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
       ),
     );
   }
+
+  // ============================================================
+  // INTERFACE
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -439,6 +802,10 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
           : _buildContenu(),
     );
   }
+
+  // ============================================================
+  // CONTENU
+  // ============================================================
 
   Widget _buildContenu() {
     final stats = statistiques;
@@ -546,6 +913,10 @@ class _StatistiqueScreenState extends State<StatistiqueScreen> {
           ),
 
           const SizedBox(height: 20),
+
+          buildAnalyseFinanciere(),
+
+          const SizedBox(height: 30),
         ],
       ),
     );

@@ -23,6 +23,16 @@ class _CommandeScreenState extends State<CommandeScreen> {
   List<Client> clients = [];
   List<Commande> commandes = [];
   List<Commande> commandesFiltrees = [];
+  DateTime? dateDebutFiltre;
+  DateTime? dateFinFiltre;
+
+  double get totalCommandesFiltrees {
+    return commandesFiltrees.fold<double>(
+      0,
+      (total, commande) => total + commande.total,
+    );
+  }
+
   List<Vetement> vetements = [];
   List<DetailCommande> detailsTemporaires = [];
   List<Tarif> tarifs = [];
@@ -114,8 +124,6 @@ class _CommandeScreenState extends State<CommandeScreen> {
       debugPrint("Vêtement : ${vetement.nom} - ${vetement.prix}");
     }
 
-    commandesFiltrees = commandes;
-
     if (clientSelectionne != null) {
       try {
         clientSelectionne = clients.firstWhere(
@@ -138,41 +146,144 @@ class _CommandeScreenState extends State<CommandeScreen> {
 
     if (!mounted) return;
 
-    setState(() {});
+    appliquerFiltresCommandes();
+  }
+
+  DateTime? convertirDateCommande(String valeur) {
+    final texte = valeur.trim().replaceFirst(' ', 'T');
+    final date = DateTime.tryParse(texte);
+
+    if (date == null) {
+      return null;
+    }
+
+    return DateUtils.dateOnly(date);
+  }
+
+  void appliquerFiltresCommandes() {
+    final recherche = rechercheController.text.trim().toLowerCase();
+
+    final debut = dateDebutFiltre == null
+        ? null
+        : DateUtils.dateOnly(dateDebutFiltre!);
+
+    final finExclusive = dateFinFiltre == null
+        ? null
+        : DateUtils.dateOnly(dateFinFiltre!).add(const Duration(days: 1));
+
+    final resultat = commandes.where((commande) {
+      bool correspondRecherche = true;
+
+      if (recherche.isNotEmpty) {
+        String nomClient = '';
+
+        try {
+          final client = clients.firstWhere((c) => c.id == commande.clientId);
+
+          nomClient = '${client.nom} ${client.prenom}'.toLowerCase();
+        } catch (_) {}
+
+        correspondRecherche =
+            nomClient.contains(recherche) ||
+            commande.id.toString().contains(recherche) ||
+            commande.statut.toLowerCase().contains(recherche) ||
+            commande.date.toLowerCase().contains(recherche);
+      }
+
+      final correspondStatut =
+          filtreStatut == 'Toutes' || commande.statut == filtreStatut;
+
+      bool correspondPeriode = true;
+
+      final dateCommande = convertirDateCommande(commande.date);
+
+      if (dateDebutFiltre != null || dateFinFiltre != null) {
+        if (dateCommande == null) {
+          correspondPeriode = false;
+        } else {
+          if (debut != null && dateCommande.isBefore(debut)) {
+            correspondPeriode = false;
+          }
+
+          if (finExclusive != null && !dateCommande.isBefore(finExclusive)) {
+            correspondPeriode = false;
+          }
+        }
+      }
+
+      return correspondRecherche && correspondStatut && correspondPeriode;
+    }).toList();
+
+    setState(() {
+      commandesFiltrees = resultat;
+    });
   }
 
   void rechercherCommande(String valeur) {
-    setState(() {
-      if (valeur.trim().isEmpty) {
-        commandesFiltrees = commandes;
-      } else {
-        commandesFiltrees = commandes.where((commande) {
-          try {
-            final client = clients.firstWhere((c) => c.id == commande.clientId);
-
-            final nomComplet = "${client.nom} ${client.prenom}".toLowerCase();
-
-            return nomComplet.contains(valeur.toLowerCase());
-          } catch (_) {
-            return false;
-          }
-        }).toList();
-      }
-    });
+    appliquerFiltresCommandes();
   }
 
   void filtrerCommandes(String filtre) {
-    setState(() {
-      filtreStatut = filtre;
+    filtreStatut = filtre;
+    appliquerFiltresCommandes();
+  }
 
-      if (filtre == "Toutes") {
-        commandesFiltrees = commandes;
-      } else {
-        commandesFiltrees = commandes
-            .where((commande) => commande.statut == filtre)
-            .toList();
+  String afficherDateFiltre(DateTime? date) {
+    if (date == null) {
+      return 'Choisir';
+    }
+
+    final jour = date.day.toString().padLeft(2, '0');
+    final mois = date.month.toString().padLeft(2, '0');
+
+    return '$jour/$mois/${date.year}';
+  }
+
+  Future<void> choisirDateDebutFiltre() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: dateDebutFiltre ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (date == null || !mounted) return;
+
+    setState(() {
+      dateDebutFiltre = date;
+
+      if (dateFinFiltre != null && dateFinFiltre!.isBefore(date)) {
+        dateFinFiltre = date;
       }
     });
+
+    appliquerFiltresCommandes();
+  }
+
+  Future<void> choisirDateFinFiltre() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: dateFinFiltre ?? dateDebutFiltre ?? DateTime.now(),
+      firstDate: dateDebutFiltre ?? DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (date == null || !mounted) return;
+
+    setState(() {
+      dateFinFiltre = date;
+    });
+
+    appliquerFiltresCommandes();
+  }
+
+  void reinitialiserPeriodeCommandes() {
+    setState(() {
+      dateDebutFiltre = null;
+      dateFinFiltre = null;
+    });
+
+    appliquerFiltresCommandes();
   }
 
   Color couleurStatut(String statut) {
@@ -1209,6 +1320,66 @@ class _CommandeScreenState extends State<CommandeScreen> {
               "Liste des commandes",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: choisirDateDebutFiltre,
+                    icon: const Icon(Icons.calendar_month),
+                    label: Text(
+                      'Début : ${afficherDateFiltre(dateDebutFiltre)}',
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: choisirDateFinFiltre,
+                    icon: const Icon(Icons.calendar_month),
+                    label: Text('Fin : ${afficherDateFiltre(dateFinFiltre)}'),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            if (dateDebutFiltre != null || dateFinFiltre != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: reinitialiserPeriodeCommandes,
+                  icon: const Icon(Icons.clear),
+                  label: const Text('Réinitialiser la période'),
+                ),
+              ),
+
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total des commandes',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${totalCommandesFiltrees.toStringAsFixed(0)} FCFA',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 15),
             Wrap(
               spacing: 8,

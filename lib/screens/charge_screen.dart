@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import '../models/charge.dart';
@@ -5,24 +8,18 @@ import '../services/charge_service.dart';
 import '../services/session_service.dart';
 
 class ChargeScreen extends StatefulWidget {
-  const ChargeScreen({
-    super.key,
-  });
+  const ChargeScreen({super.key});
 
   @override
-  State<ChargeScreen> createState() =>
-      _ChargeScreenState();
+  State<ChargeScreen> createState() => _ChargeScreenState();
 }
 
-class _ChargeScreenState
-    extends State<ChargeScreen> {
-  final ChargeService _service =
-      ChargeService.instance;
+class _ChargeScreenState extends State<ChargeScreen> {
+  final ChargeService _service = ChargeService.instance;
 
   List<Charge> _charges = [];
 
   bool _chargement = true;
-
   String? _erreur;
 
   double _totalCharges = 0;
@@ -52,6 +49,10 @@ class _ChargeScreenState
     }
   }
 
+  // ============================================================
+  // CHARGEMENT
+  // ============================================================
+
   Future<void> _charger() async {
     if (!SessionService.estProprietaire) {
       return;
@@ -65,14 +66,9 @@ class _ChargeScreenState
     }
 
     try {
-      final charges =
-          await _service.getCharges();
-
-      final total =
-          await _service.getTotalCharges();
-
-      final totalMois =
-          await _service.getTotalChargesMois();
+      final charges = await _service.getCharges();
+      final total = await _service.getTotalCharges();
+      final totalMois = await _service.getTotalChargesMois();
 
       if (!mounted) return;
 
@@ -86,27 +82,23 @@ class _ChargeScreenState
       if (!mounted) return;
 
       setState(() {
-        _erreur = e.toString().replaceFirst(
-              'Exception: ',
-              '',
-            );
+        _erreur = e.toString().replaceFirst('Exception: ', '');
 
         _chargement = false;
       });
     }
   }
 
-  String _formatMontant(
-    double montant,
-  ) {
+  // ============================================================
+  // FORMATAGE
+  // ============================================================
+
+  String _formatMontant(double montant) {
     return '${montant.toStringAsFixed(0)} FCFA';
   }
 
-  String _formatDate(
-    String date,
-  ) {
-    final parsed =
-        DateTime.tryParse(date);
+  String _formatDate(String date) {
+    final parsed = DateTime.tryParse(date);
 
     if (parsed == null) {
       return date;
@@ -117,9 +109,12 @@ class _ChargeScreenState
         '${parsed.year}';
   }
 
+  // ============================================================
+  // AJOUT
+  // ============================================================
+
   Future<void> _ajouterCharge() async {
-    final resultat =
-        await _ouvrirFormulaire();
+    final resultat = await _ouvrirFormulaire();
 
     if (resultat == null) {
       return;
@@ -132,16 +127,16 @@ class _ChargeScreenState
         montant: resultat.montant,
         date: resultat.date,
         note: resultat.note,
+        pieceJustificativeNom: resultat.pieceJustificativeNom,
+        pieceJustificative: resultat.pieceJustificative,
       );
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Charge ajoutée avec succès.',
-          ),
+          content: Text('Charge ajoutée avec succès.'),
+          backgroundColor: Colors.green,
         ),
       );
 
@@ -153,13 +148,12 @@ class _ChargeScreenState
     }
   }
 
-  Future<void> _modifierCharge(
-    Charge charge,
-  ) async {
-    final resultat =
-        await _ouvrirFormulaire(
-      charge: charge,
-    );
+  // ============================================================
+  // MODIFICATION
+  // ============================================================
+
+  Future<void> _modifierCharge(Charge charge) async {
+    final resultat = await _ouvrirFormulaire(charge: charge);
 
     if (resultat == null) {
       return;
@@ -173,17 +167,17 @@ class _ChargeScreenState
           montant: resultat.montant,
           date: resultat.date,
           note: resultat.note,
+          pieceJustificativeNom: resultat.pieceJustificativeNom,
+          pieceJustificative: resultat.pieceJustificative,
         ),
       );
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Charge modifiée avec succès.',
-          ),
+          content: Text('Charge modifiée avec succès.'),
+          backgroundColor: Colors.green,
         ),
       );
 
@@ -195,17 +189,16 @@ class _ChargeScreenState
     }
   }
 
-  Future<void> _supprimerCharge(
-    Charge charge,
-  ) async {
-    final confirmer =
-        await showDialog<bool>(
+  // ============================================================
+  // SUPPRESSION
+  // ============================================================
+
+  Future<void> _supprimerCharge(Charge charge) async {
+    final confirmer = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text(
-            'Supprimer la charge',
-          ),
+          title: const Text('Supprimer la charge'),
           content: Text(
             'Voulez-vous supprimer '
             '"${charge.libelle}" '
@@ -214,30 +207,16 @@ class _ChargeScreenState
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
+                Navigator.pop(dialogContext, false);
               },
-              child: const Text(
-                'Annuler',
-              ),
+              child: const Text('Annuler'),
             ),
             FilledButton(
-              style:
-                  FilledButton.styleFrom(
-                backgroundColor:
-                    Colors.red,
-              ),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
+                Navigator.pop(dialogContext, true);
               },
-              child: const Text(
-                'Supprimer',
-              ),
+              child: const Text('Supprimer'),
             ),
           ],
         );
@@ -249,20 +228,13 @@ class _ChargeScreenState
     }
 
     try {
-      await _service.supprimerCharge(
-        charge,
-      );
+      await _service.supprimerCharge(charge);
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Charge supprimée.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Charge supprimée.')));
 
       await _charger();
     } catch (e) {
@@ -272,250 +244,301 @@ class _ChargeScreenState
     }
   }
 
-  void _afficherErreur(
-    Object erreur,
-  ) {
-    final message =
-        erreur.toString().replaceFirst(
-              'Exception: ',
-              '',
-            );
+  // ============================================================
+  // ERREUR
+  // ============================================================
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+  void _afficherErreur(Object erreur) {
+    final message = erreur.toString().replaceFirst('Exception: ', '');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
-  Future<_ChargeFormResult?>
-      _ouvrirFormulaire({
-    Charge? charge,
-  }) async {
-    final libelleController =
-        TextEditingController(
+  // ============================================================
+  // FORMULAIRE
+  // ============================================================
+
+  Future<_ChargeFormResult?> _ouvrirFormulaire({Charge? charge}) async {
+    final libelleController = TextEditingController(
       text: charge?.libelle ?? '',
     );
 
-    final montantController =
-        TextEditingController(
-      text: charge == null
-          ? ''
-          : charge.montant
-              .toStringAsFixed(0),
+    final montantController = TextEditingController(
+      text: charge == null ? '' : charge.montant.toStringAsFixed(0),
     );
 
-    final noteController =
-        TextEditingController(
-      text: charge?.note ?? '',
-    );
+    final noteController = TextEditingController(text: charge?.note ?? '');
 
-    String categorie =
-        charge?.categorie ??
-            _categories.first;
+    String categorie = charge?.categorie ?? _categories.first;
 
-    DateTime date =
-        DateTime.tryParse(
-              charge?.date ?? '',
-            ) ??
-            DateTime.now();
+    DateTime date = DateTime.tryParse(charge?.date ?? '') ?? DateTime.now();
 
-    final resultat =
-        await showDialog<
-            _ChargeFormResult>(
+    String? pieceNom = charge?.pieceJustificativeNom;
+
+    Uint8List? pieceOctets = charge?.pieceJustificative;
+
+    final resultat = await showDialog<_ChargeFormResult>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (
-            dialogContext,
-            setDialogState,
-          ) {
+          builder: (dialogContext, setDialogState) {
             final dateTexte =
                 '${date.day.toString().padLeft(2, '0')}/'
                 '${date.month.toString().padLeft(2, '0')}/'
                 '${date.year}';
 
+            Future<void> choisirPieceJustificative() async {
+              try {
+                const typeGroup = XTypeGroup(
+                  label: 'Pièces justificatives',
+                  extensions: ['pdf', 'jpg', 'jpeg', 'png'],
+                );
+
+                final XFile? fichier = await openFile(
+                  acceptedTypeGroups: const [typeGroup],
+                );
+
+                if (fichier == null) {
+                  debugPrint('Aucun fichier sélectionné');
+                  return;
+                }
+
+                debugPrint('Fichier sélectionné : ${fichier.name}');
+
+                final bytes = await fichier.readAsBytes();
+
+                debugPrint('Taille : ${bytes.length} octets');
+
+                const tailleMax = 5 * 1024 * 1024;
+
+                if (bytes.length > tailleMax) {
+                  if (!dialogContext.mounted) {
+                    return;
+                  }
+
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'La pièce justificative '
+                        'ne doit pas dépasser 5 Mo.',
+                      ),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+
+                  return;
+                }
+
+                if (!dialogContext.mounted) {
+                  return;
+                }
+
+                setDialogState(() {
+                  pieceNom = fichier.name;
+                  pieceOctets = bytes;
+                });
+
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Pièce sélectionnée : ${fichier.name}'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e, stackTrace) {
+                debugPrint('ERREUR SÉLECTION FICHIER : $e');
+
+                debugPrint(stackTrace.toString());
+
+                if (!dialogContext.mounted) {
+                  return;
+                }
+
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Impossible de sélectionner '
+                      'le fichier : $e',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+
             return AlertDialog(
               title: Text(
-                charge == null
-                    ? 'Ajouter une charge'
-                    : 'Modifier la charge',
+                charge == null ? 'Ajouter une charge' : 'Modifier la charge',
               ),
               content: SizedBox(
                 width: 450,
-                child:
-                    SingleChildScrollView(
+                child: SingleChildScrollView(
                   child: Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       TextField(
-                        controller:
-                            libelleController,
-                        decoration:
-                            const InputDecoration(
-                          labelText:
-                              'Libellé',
-                          prefixIcon:
-                              Icon(
-                            Icons
-                                .description_outlined,
-                          ),
+                        controller: libelleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Libellé',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.description_outlined),
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 14,
-                      ),
+                      const SizedBox(height: 14),
 
-                      DropdownButtonFormField<
-                          String>(
-                        initialValue:
-                            categorie,
-                        decoration:
-                            const InputDecoration(
-                          labelText:
-                              'Catégorie',
-                          prefixIcon:
-                              Icon(
-                            Icons.category,
-                          ),
+                      DropdownButtonFormField<String>(
+                        initialValue: categorie,
+                        decoration: const InputDecoration(
+                          labelText: 'Catégorie',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.category),
                         ),
                         items: _categories
                             .map(
-                              (
-                                categorie,
-                              ) =>
-                                  DropdownMenuItem(
-                                value:
-                                    categorie,
-                                child:
-                                    Text(
-                                  categorie,
-                                ),
+                              (categorie) => DropdownMenuItem<String>(
+                                value: categorie,
+                                child: Text(categorie),
                               ),
                             )
                             .toList(),
-                        onChanged:
-                            (value) {
-                          if (value ==
-                              null) {
+                        onChanged: (value) {
+                          if (value == null) {
                             return;
                           }
 
-                          categorie =
-                              value;
+                          categorie = value;
                         },
                       ),
 
-                      const SizedBox(
-                        height: 14,
-                      ),
+                      const SizedBox(height: 14),
 
                       TextField(
-                        controller:
-                            montantController,
-                        keyboardType:
-                            const TextInputType
-                                .numberWithOptions(
+                        controller: montantController,
+                        keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        decoration:
-                            const InputDecoration(
-                          labelText:
-                              'Montant',
-                          suffixText:
-                              'FCFA',
-                          prefixIcon:
-                              Icon(
-                            Icons
-                                .payments_outlined,
-                          ),
+                        decoration: const InputDecoration(
+                          labelText: 'Montant',
+                          suffixText: 'FCFA',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.payments_outlined),
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 14,
+                      const SizedBox(height: 14),
+
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.calendar_month),
+                          title: const Text('Date'),
+                          subtitle: Text(dateTexte),
+                          trailing: const Icon(Icons.edit),
+                          onTap: () async {
+                            final nouvelleDate = await showDatePicker(
+                              context: dialogContext,
+                              initialDate: date,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2100),
+                            );
+
+                            if (nouvelleDate == null) {
+                              return;
+                            }
+
+                            if (!dialogContext.mounted) {
+                              return;
+                            }
+
+                            setDialogState(() {
+                              date = nouvelleDate;
+                            });
+                          },
+                        ),
                       ),
 
-                      ListTile(
-                        contentPadding:
-                            EdgeInsets.zero,
-                        leading:
-                            const Icon(
-                          Icons
-                              .calendar_month,
+                      const SizedBox(height: 14),
+
+                      // ===========================
+                      // PIÈCE JUSTIFICATIVE
+                      // ===========================
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade400),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        title:
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
                             const Text(
-                          'Date',
-                        ),
-                        subtitle:
-                            Text(
-                          dateTexte,
-                        ),
-                        trailing:
-                            const Icon(
-                          Icons.edit,
-                        ),
-                        onTap:
-                            () async {
-                          final nouvelleDate =
-                              await showDatePicker(
-                            context:
-                                dialogContext,
-                            initialDate:
-                                date,
-                            firstDate:
-                                DateTime(
-                              2020,
+                              'Pièce justificative',
+                              style: TextStyle(fontWeight: FontWeight.bold),
                             ),
-                            lastDate:
-                                DateTime(
-                              2100,
+
+                            const SizedBox(height: 5),
+
+                            const Text(
+                              'PDF, JPG ou PNG '
+                              '(5 Mo maximum)',
+                              style: TextStyle(color: Colors.grey),
                             ),
-                          );
 
-                          if (nouvelleDate ==
-                              null) {
-                            return;
-                          }
+                            const SizedBox(height: 10),
 
-                          if (!dialogContext
-                              .mounted) {
-                            return;
-                          }
+                            OutlinedButton.icon(
+                              onPressed: choisirPieceJustificative,
+                              icon: const Icon(Icons.attach_file),
+                              label: Text(
+                                pieceNom == null
+                                    ? 'Ajouter une pièce justificative'
+                                    : 'Changer la pièce justificative',
+                              ),
+                            ),
 
-                          setDialogState(
-                            () {
-                              date =
-                                  nouvelleDate;
-                            },
-                          );
-                        },
+                            if (pieceNom != null) ...[
+                              const SizedBox(height: 8),
+
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.description_outlined,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      pieceNom!,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green,
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
 
-                      const SizedBox(
-                        height: 8,
-                      ),
+                      const SizedBox(height: 14),
 
                       TextField(
-                        controller:
-                            noteController,
+                        controller: noteController,
                         maxLines: 3,
-                        decoration:
-                            const InputDecoration(
-                          labelText:
-                              'Note facultative',
-                          alignLabelWithHint:
-                              true,
-                          prefixIcon:
-                              Icon(
-                            Icons
-                                .notes_outlined,
-                          ),
+                        decoration: const InputDecoration(
+                          labelText: 'Note facultative',
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                          prefixIcon: Icon(Icons.notes_outlined),
                         ),
                       ),
                     ],
@@ -525,45 +548,27 @@ class _ChargeScreenState
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.pop(
-                      dialogContext,
-                    );
+                    Navigator.pop(dialogContext);
                   },
-                  child:
-                      const Text(
-                    'Annuler',
-                  ),
+                  child: const Text('Annuler'),
                 ),
+
                 FilledButton(
                   onPressed: () {
-                    final libelle =
-                        libelleController
-                            .text
-                            .trim();
+                    final libelle = libelleController.text.trim();
 
-                    final montantTexte =
-                        montantController
-                            .text
-                            .trim()
-                            .replaceAll(
-                              ',',
-                              '.',
-                            );
+                    final montantTexte = montantController.text
+                        .trim()
+                        .replaceAll(',', '.');
 
-                    final montant =
-                        double.tryParse(
-                      montantTexte,
-                    );
+                    final montant = double.tryParse(montantTexte);
 
-                    if (libelle
-                        .isEmpty) {
-                      ScaffoldMessenger
-                              .of(
-                        dialogContext,
-                      ).showSnackBar(
+                    if (libelle.isEmpty) {
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Le libellé est obligatoire.',
+                            'Le libellé '
+                            'est obligatoire.',
                           ),
                         ),
                       );
@@ -571,16 +576,12 @@ class _ChargeScreenState
                       return;
                     }
 
-                    if (montant ==
-                            null ||
-                        montant <= 0) {
-                      ScaffoldMessenger
-                              .of(
-                        dialogContext,
-                      ).showSnackBar(
+                    if (montant == null || montant <= 0) {
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Saisissez un montant valide.',
+                            'Saisissez un '
+                            'montant valide.',
                           ),
                         ),
                       );
@@ -596,26 +597,17 @@ class _ChargeScreenState
                     Navigator.pop(
                       dialogContext,
                       _ChargeFormResult(
-                        libelle:
-                            libelle,
-                        categorie:
-                            categorie,
-                        montant:
-                            montant,
-                        date:
-                            dateIso,
-                        note:
-                            noteController
-                                .text
-                                .trim(),
+                        libelle: libelle,
+                        categorie: categorie,
+                        montant: montant,
+                        date: dateIso,
+                        note: noteController.text.trim(),
+                        pieceJustificativeNom: pieceNom,
+                        pieceJustificative: pieceOctets,
                       ),
                     );
                   },
-                  child: Text(
-                    charge == null
-                        ? 'Ajouter'
-                        : 'Enregistrer',
-                  ),
+                  child: Text(charge == null ? 'Ajouter' : 'Enregistrer'),
                 ),
               ],
             );
@@ -631,36 +623,30 @@ class _ChargeScreenState
     return resultat;
   }
 
+  // ============================================================
+  // RÉSUMÉ
+  // ============================================================
+
   Widget _buildResume() {
     return Row(
       children: [
         Expanded(
           child: _buildResumeCard(
-            titre:
-                'Charges du mois',
-            montant:
-                _totalMois,
-            icon:
-                Icons.calendar_month,
-            couleur:
-                Colors.orange,
+            titre: 'Charges du mois',
+            montant: _totalMois,
+            icon: Icons.calendar_month,
+            couleur: Colors.orange,
           ),
         ),
 
-        const SizedBox(
-          width: 12,
-        ),
+        const SizedBox(width: 12),
 
         Expanded(
           child: _buildResumeCard(
-            titre:
-                'Total charges',
-            montant:
-                _totalCharges,
-            icon:
-                Icons.payments,
-            couleur:
-                Colors.red,
+            titre: 'Total charges',
+            montant: _totalCharges,
+            icon: Icons.payments,
+            couleur: Colors.red,
           ),
         ),
       ],
@@ -675,36 +661,20 @@ class _ChargeScreenState
   }) {
     return Card(
       child: Padding(
-        padding:
-            const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: couleur,
-              size: 30,
-            ),
-            const SizedBox(
-              height: 8,
-            ),
-            Text(
-              titre,
-              textAlign:
-                  TextAlign.center,
-            ),
-            const SizedBox(
-              height: 5,
-            ),
+            Icon(icon, color: couleur, size: 30),
+            const SizedBox(height: 8),
+            Text(titre, textAlign: TextAlign.center),
+            const SizedBox(height: 5),
             FittedBox(
               child: Text(
-                _formatMontant(
-                  montant,
-                ),
+                _formatMontant(montant),
                 style: TextStyle(
                   color: couleur,
                   fontSize: 18,
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -714,28 +684,20 @@ class _ChargeScreenState
     );
   }
 
+  // ============================================================
+  // LISTE
+  // ============================================================
+
   Widget _buildListe() {
     if (_charges.isEmpty) {
       return const Center(
         child: Padding(
-          padding:
-              EdgeInsets.all(40),
+          padding: EdgeInsets.all(40),
           child: Column(
             children: [
-              Icon(
-                Icons
-                    .receipt_long_outlined,
-                size: 60,
-                color: Colors.grey,
-              ),
-              SizedBox(
-                height: 12,
-              ),
-              Text(
-                'Aucune charge enregistrée.',
-                textAlign:
-                    TextAlign.center,
-              ),
+              Icon(Icons.receipt_long_outlined, size: 60, color: Colors.grey),
+              SizedBox(height: 12),
+              Text('Aucune charge enregistrée.', textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -743,135 +705,94 @@ class _ChargeScreenState
     }
 
     return ListView.separated(
-      padding:
-          const EdgeInsets.only(
-        top: 12,
-        bottom: 90,
-      ),
-      itemCount:
-          _charges.length,
-      separatorBuilder:
-          (_, _) =>
-              const SizedBox(
-        height: 6,
-      ),
-      itemBuilder:
-          (context, index) {
-        final charge =
-            _charges[index];
+      padding: const EdgeInsets.only(top: 12, bottom: 90),
+      itemCount: _charges.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 6),
+      itemBuilder: (context, index) {
+        final charge = _charges[index];
 
         return Card(
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor:
-                  Colors.orange
-                      .shade50,
-              child: const Icon(
-                Icons
-                    .payments_outlined,
-                color:
-                    Colors.orange,
-              ),
+              backgroundColor: Colors.orange.shade50,
+              child: const Icon(Icons.payments_outlined, color: Colors.orange),
             ),
             title: Text(
               charge.libelle,
-              style:
-                  const TextStyle(
-                fontWeight:
-                    FontWeight.bold,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(
-                  height: 4,
-                ),
+                const SizedBox(height: 4),
+
                 Text(
                   '${charge.categorie} • '
                   '${_formatDate(charge.date)}',
                 ),
-                if (charge.note
-                    .isNotEmpty) ...[
-                  const SizedBox(
-                    height: 3,
+
+                if (charge.pieceJustificativeNom != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.attach_file, size: 16),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          charge.pieceJustificativeNom!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
+                ],
+
+                if (charge.note.isNotEmpty) ...[
+                  const SizedBox(height: 3),
                   Text(
                     charge.note,
                     maxLines: 2,
-                    overflow:
-                        TextOverflow
-                            .ellipsis,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ],
             ),
             trailing: Row(
-              mainAxisSize:
-                  MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _formatMontant(
-                    charge.montant,
-                  ),
-                  style:
-                      const TextStyle(
-                    fontWeight:
-                        FontWeight.bold,
-                    color:
-                        Colors.red,
+                  _formatMontant(charge.montant),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
                   ),
                 ),
-                PopupMenuButton<
-                    String>(
-                  onSelected:
-                      (action) {
-                    if (action ==
-                        'modifier') {
-                      _modifierCharge(
-                        charge,
-                      );
+
+                PopupMenuButton<String>(
+                  onSelected: (action) {
+                    if (action == 'modifier') {
+                      _modifierCharge(charge);
                     }
 
-                    if (action ==
-                        'supprimer') {
-                      _supprimerCharge(
-                        charge,
-                      );
+                    if (action == 'supprimer') {
+                      _supprimerCharge(charge);
                     }
                   },
-                  itemBuilder:
-                      (context) => [
+                  itemBuilder: (context) => [
                     const PopupMenuItem(
-                      value:
-                          'modifier',
+                      value: 'modifier',
                       child: ListTile(
-                        leading:
-                            Icon(
-                          Icons.edit,
-                        ),
-                        title:
-                            Text(
-                          'Modifier',
-                        ),
+                        leading: Icon(Icons.edit),
+                        title: Text('Modifier'),
                       ),
                     ),
+
                     const PopupMenuItem(
-                      value:
-                          'supprimer',
+                      value: 'supprimer',
                       child: ListTile(
-                        leading:
-                            Icon(
-                          Icons.delete,
-                          color:
-                              Colors.red,
-                        ),
-                        title:
-                            Text(
-                          'Supprimer',
-                        ),
+                        leading: Icon(Icons.delete, color: Colors.red),
+                        title: Text('Supprimer'),
                       ),
                     ),
                   ],
@@ -884,46 +805,31 @@ class _ChargeScreenState
     );
   }
 
+  // ============================================================
+  // ACCÈS REFUSÉ
+  // ============================================================
+
   Widget _buildAccesRefuse() {
     return Center(
       child: Padding(
-        padding:
-            const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.lock_outline,
-              size: 70,
-              color: Colors.orange,
-            ),
-            const SizedBox(
-              height: 16,
-            ),
+            const Icon(Icons.lock_outline, size: 70, color: Colors.orange),
+            const SizedBox(height: 16),
             const Text(
               'Accès réservé au propriétaire',
-              textAlign:
-                  TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight:
-                    FontWeight.bold,
-              ),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(
-              height: 8,
-            ),
+            const SizedBox(height: 8),
             Text(
               'Les charges du pressing '
               'contiennent des informations '
               'financières sensibles.',
-              textAlign:
-                  TextAlign.center,
-              style: TextStyle(
-                color:
-                    Colors.grey.shade700,
-              ),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade700),
             ),
           ],
         ),
@@ -931,118 +837,75 @@ class _ChargeScreenState
     );
   }
 
+  // ============================================================
+  // INTERFACE
+  // ============================================================
+
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     if (!SessionService.estProprietaire) {
       return Scaffold(
-        appBar: AppBar(
-          title:
-              const Text(
-            'Charges',
-          ),
-          centerTitle: true,
-        ),
-        body:
-            _buildAccesRefuse(),
+        appBar: AppBar(title: const Text('Charges'), centerTitle: true),
+        body: _buildAccesRefuse(),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title:
-            const Text(
-          'Charges',
-        ),
+        title: const Text('Charges'),
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip:
-                'Actualiser',
+            tooltip: 'Actualiser',
             onPressed: _charger,
-            icon:
-                const Icon(
-              Icons.refresh,
-            ),
+            icon: const Icon(Icons.refresh),
           ),
         ],
       ),
+
       body: _chargement
-          ? const Center(
-              child:
-                  CircularProgressIndicator(),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : _erreur != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons
-                            .error_outline,
-                        size: 55,
-                        color:
-                            Colors.red,
-                      ),
-                      const SizedBox(
-                        height: 12,
-                      ),
-                      Text(
-                        _erreur!,
-                      ),
-                      const SizedBox(
-                        height: 12,
-                      ),
-                      FilledButton(
-                        onPressed:
-                            _charger,
-                        child:
-                            const Text(
-                          'Réessayer',
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 55, color: Colors.red),
+                  const SizedBox(height: 12),
+                  Text(_erreur!),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _charger,
+                    child: const Text('Réessayer'),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh:
-                      _charger,
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding:
-                            const EdgeInsets
-                                .all(
-                          12,
-                        ),
-                        child:
-                            _buildResume(),
-                      ),
-                      Expanded(
-                        child:
-                            _buildListe(),
-                      ),
-                    ],
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _charger,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: _buildResume(),
                   ),
-                ),
-      floatingActionButton:
-          FloatingActionButton.extended(
-        onPressed:
-            _ajouterCharge,
-        icon:
-            const Icon(
-          Icons.add,
-        ),
-        label:
-            const Text(
-          'Ajouter',
-        ),
+                  Expanded(child: _buildListe()),
+                ],
+              ),
+            ),
+
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _ajouterCharge,
+        icon: const Icon(Icons.add),
+        label: const Text('Ajouter'),
       ),
     );
   }
 }
+
+// ============================================================
+// RÉSULTAT DU FORMULAIRE
+// ============================================================
 
 class _ChargeFormResult {
   final String libelle;
@@ -1051,11 +914,17 @@ class _ChargeFormResult {
   final String date;
   final String note;
 
+  final String? pieceJustificativeNom;
+
+  final Uint8List? pieceJustificative;
+
   const _ChargeFormResult({
     required this.libelle,
     required this.categorie,
     required this.montant,
     required this.date,
     required this.note,
+    this.pieceJustificativeNom,
+    this.pieceJustificative,
   });
 }

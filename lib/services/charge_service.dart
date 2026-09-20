@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../models/charge.dart';
 import '../repositories/charge_repository.dart';
 import 'security_service.dart';
@@ -12,7 +14,10 @@ class ChargeService {
 
   void _verifierProprietaire() {
     if (!SessionService.estProprietaire) {
-      throw Exception('La gestion des charges est réservée au propriétaire.');
+      throw Exception(
+        'La gestion des charges est réservée '
+        'au propriétaire.',
+      );
     }
   }
 
@@ -40,7 +45,11 @@ class ChargeService {
     required double montant,
     required String date,
     String note = '',
+    String? pieceJustificativeNom,
+    Uint8List? pieceJustificative,
   }) async {
+    _verifierProprietaire();
+
     if (libelle.trim().isEmpty) {
       throw Exception('Le libellé est obligatoire.');
     }
@@ -66,7 +75,10 @@ class ChargeService {
     );
 
     if (!autorisee) {
-      throw Exception('Cette action est réservée au propriétaire.');
+      throw Exception(
+        'Cette action est réservée '
+        'au propriétaire.',
+      );
     }
 
     final charge = Charge(
@@ -75,12 +87,16 @@ class ChargeService {
       montant: montant,
       date: date.trim(),
       note: note.trim(),
+      pieceJustificativeNom: pieceJustificativeNom,
+      pieceJustificative: pieceJustificative,
     );
 
     await _repository.ajouterCharge(charge);
   }
 
   Future<void> modifierCharge(Charge charge) async {
+    _verifierProprietaire();
+
     if (charge.id == null) {
       throw Exception('Charge invalide.');
     }
@@ -118,13 +134,18 @@ class ChargeService {
     );
 
     if (!autorisee) {
-      throw Exception('Cette action est réservée au propriétaire.');
+      throw Exception(
+        'Cette action est réservée '
+        'au propriétaire.',
+      );
     }
 
     await _repository.modifierCharge(chargeNormalisee);
   }
 
   Future<void> supprimerCharge(Charge charge) async {
+    _verifierProprietaire();
+
     if (charge.id == null) {
       throw Exception('Charge invalide.');
     }
@@ -140,7 +161,10 @@ class ChargeService {
     );
 
     if (!autorisee) {
-      throw Exception('Cette action est réservée au propriétaire.');
+      throw Exception(
+        'Cette action est réservée '
+        'au propriétaire.',
+      );
     }
 
     await _repository.supprimerCharge(charge.id!);

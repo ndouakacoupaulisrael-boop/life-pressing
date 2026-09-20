@@ -11,21 +11,27 @@ class PaiementScreen extends StatefulWidget {
   const PaiementScreen({super.key});
 
   @override
-  State<PaiementScreen> createState() =>
-      _PaiementScreenState();
+  State<PaiementScreen> createState() => _PaiementScreenState();
 }
 
-class _PaiementScreenState
-    extends State<PaiementScreen> {
+class _PaiementScreenState extends State<PaiementScreen> {
   List<Commande> commandes = [];
   List<Paiement> paiements = [];
   List<Paiement> paiementsFiltres = [];
 
-  final TextEditingController rechercheController =
-      TextEditingController();
+  DateTime? dateDebut;
+  DateTime? dateFin;
 
-  final TextEditingController montantController =
-      TextEditingController();
+  double get totalEncaissementsFiltres {
+    return paiementsFiltres.fold<double>(
+      0,
+      (total, paiement) => total + paiement.montant,
+    );
+  }
+
+  final TextEditingController rechercheController = TextEditingController();
+
+  final TextEditingController montantController = TextEditingController();
 
   Commande? commandeSelectionnee;
 
@@ -57,26 +63,19 @@ class _PaiementScreenState
   // ============================================================
 
   Future<void> chargerDonnees() async {
-    final idSelectionne =
-        commandeSelectionnee?.id;
+    final idSelectionne = commandeSelectionnee?.id;
 
     try {
-      final nouvellesCommandes =
-          await CommandeService.instance
-              .getCommandes();
+      final nouvellesCommandes = await CommandeService.instance.getCommandes();
 
-      final nouveauxPaiements =
-          await PaiementService.instance
-              .getPaiements();
+      final nouveauxPaiements = await PaiementService.instance.getPaiements();
 
       Commande? commandeRechargee;
 
       if (idSelectionne != null) {
         try {
-          commandeRechargee =
-              nouvellesCommandes.firstWhere(
-            (commande) =>
-                commande.id == idSelectionne,
+          commandeRechargee = nouvellesCommandes.firstWhere(
+            (commande) => commande.id == idSelectionne,
           );
         } catch (_) {
           commandeRechargee = null;
@@ -89,14 +88,9 @@ class _PaiementScreenState
         commandes = nouvellesCommandes;
 
         paiements = nouveauxPaiements;
+        paiementsFiltres = List<Paiement>.from(nouveauxPaiements);
 
-        paiementsFiltres =
-            List<Paiement>.from(
-          nouveauxPaiements,
-        );
-
-        commandeSelectionnee =
-            commandeRechargee;
+        commandeSelectionnee = commandeRechargee;
 
         chargement = false;
       });
@@ -111,12 +105,9 @@ class _PaiementScreenState
         chargement = false;
       });
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Erreur lors du chargement : $e',
-          ),
+          content: Text('Erreur lors du chargement : $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -127,37 +118,133 @@ class _PaiementScreenState
   // RECHERCHE
   // ============================================================
 
-  void rechercherPaiement(
-    String valeur,
-  ) {
-    final recherche =
-        valeur.trim().toLowerCase();
+  DateTime? convertirDatePaiement(String valeur) {
+    final dateIso = DateTime.tryParse(valeur);
 
-    setState(() {
-      if (recherche.isEmpty) {
-        paiementsFiltres =
-            List<Paiement>.from(
-          paiements,
-        );
+    if (dateIso != null) {
+      return DateUtils.dateOnly(dateIso);
+    }
 
-        return;
+    // Sécurité pour un ancien format JJ/MM/AAAA.
+    final morceaux = valeur.split('/');
+
+    if (morceaux.length == 3) {
+      final jour = int.tryParse(morceaux[0]);
+      final mois = int.tryParse(morceaux[1]);
+      final annee = int.tryParse(morceaux[2]);
+
+      if (jour != null && mois != null && annee != null) {
+        return DateTime(annee, mois, jour);
+      }
+    }
+
+    return null;
+  }
+
+  void appliquerFiltres() {
+    final recherche = rechercheController.text.trim().toLowerCase();
+
+    final debut = dateDebut == null ? null : DateUtils.dateOnly(dateDebut!);
+
+    final finExclusive = dateFin == null
+        ? null
+        : DateUtils.dateOnly(dateFin!).add(const Duration(days: 1));
+
+    final resultat = paiements.where((paiement) {
+      final correspondRecherche =
+          recherche.isEmpty ||
+          paiement.commandeId.toString().contains(recherche) ||
+          paiement.modePaiement.toLowerCase().contains(recherche) ||
+          paiement.date.toLowerCase().contains(recherche);
+
+      final datePaiement = convertirDatePaiement(paiement.date);
+
+      bool correspondPeriode = true;
+
+      if (datePaiement != null) {
+        if (debut != null && datePaiement.isBefore(debut)) {
+          correspondPeriode = false;
+        }
+
+        if (finExclusive != null && !datePaiement.isBefore(finExclusive)) {
+          correspondPeriode = false;
+        }
+      } else if (debut != null || dateFin != null) {
+        correspondPeriode = false;
       }
 
-      paiementsFiltres =
-          paiements.where(
-        (paiement) {
-          return paiement.commandeId
-                  .toString()
-                  .contains(recherche) ||
-              paiement.modePaiement
-                  .toLowerCase()
-                  .contains(recherche) ||
-              paiement.date
-                  .toLowerCase()
-                  .contains(recherche);
-        },
-      ).toList();
+      return correspondRecherche && correspondPeriode;
+    }).toList();
+
+    setState(() {
+      paiementsFiltres = resultat;
     });
+  }
+
+  void rechercherPaiement(String valeur) {
+    appliquerFiltres();
+  }
+
+  String afficherDate(DateTime? date) {
+    if (date == null) {
+      return 'Choisir';
+    }
+
+    final jour = date.day.toString().padLeft(2, '0');
+    final mois = date.month.toString().padLeft(2, '0');
+
+    return '$jour/$mois/${date.year}';
+  }
+
+  Future<void> choisirDateDebut() async {
+    final maintenant = DateTime.now();
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: dateDebut ?? maintenant,
+      firstDate: DateTime(2020),
+      lastDate: maintenant,
+    );
+
+    if (date == null || !mounted) return;
+
+    setState(() {
+      dateDebut = date;
+
+      if (dateFin != null && dateFin!.isBefore(date)) {
+        dateFin = date;
+      }
+    });
+
+    appliquerFiltres();
+  }
+
+  Future<void> choisirDateFin() async {
+    final maintenant = DateTime.now();
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: dateFin ?? dateDebut ?? maintenant,
+      firstDate: dateDebut ?? DateTime(2020),
+      lastDate: maintenant,
+    );
+
+    if (date == null || !mounted) return;
+
+    setState(() {
+      dateFin = date;
+    });
+
+    appliquerFiltres();
+  }
+
+  void reinitialiserPeriode() {
+    setState(() {
+      dateDebut = null;
+      dateFin = null;
+    });
+
+    appliquerFiltres();
   }
 
   // ============================================================
@@ -165,8 +252,7 @@ class _PaiementScreenState
   // ============================================================
 
   Future<void> calculerPaiement() async {
-    final commande =
-        commandeSelectionnee;
+    final commande = commandeSelectionnee;
 
     if (commande == null) {
       if (!mounted) return;
@@ -174,43 +260,33 @@ class _PaiementScreenState
       setState(() {
         totalPaye = 0;
         resteAPayer = 0;
-        statutPaiement =
-            'Non payé';
+        statutPaiement = 'Non payé';
       });
 
       return;
     }
 
     try {
-      final situation =
-          await PaiementService.instance
-              .calculerSituation(
+      final situation = await PaiementService.instance.calculerSituation(
         commande,
       );
 
       if (!mounted) return;
 
       setState(() {
-        totalPaye =
-            situation.totalPaye;
+        totalPaye = situation.totalPaye;
 
-        resteAPayer =
-            situation.resteAPayer;
+        resteAPayer = situation.resteAPayer;
 
-        statutPaiement =
-            situation.statut;
+        statutPaiement = situation.statut;
       });
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Impossible de calculer le paiement : $e',
-          ),
-          backgroundColor:
-              Colors.red,
+          content: Text('Impossible de calculer le paiement : $e'),
+          backgroundColor: Colors.red,
         ),
       );
     }
@@ -221,41 +297,23 @@ class _PaiementScreenState
   // ============================================================
 
   Future<void> enregistrerPaiement() async {
-    final commande =
-        commandeSelectionnee;
+    final commande = commandeSelectionnee;
 
     if (commande == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Veuillez sélectionner une commande.',
-          ),
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez sélectionner une commande.')),
       );
 
       return;
     }
 
-    final texteMontant =
-        montantController.text
-            .trim()
-            .replaceAll(',', '.');
+    final texteMontant = montantController.text.trim().replaceAll(',', '.');
 
-    final montant =
-        double.tryParse(
-      texteMontant,
-    );
+    final montant = double.tryParse(texteMontant);
 
-    if (montant == null ||
-        montant <= 0) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Veuillez saisir un montant valide.',
-          ),
-        ),
+    if (montant == null || montant <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez saisir un montant valide.')),
       );
 
       return;
@@ -272,9 +330,7 @@ class _PaiementScreenState
     // ----------------------------------------------------------
 
     try {
-      resultat =
-          await PaiementService.instance
-              .enregistrerPaiement(
+      resultat = await PaiementService.instance.enregistrerPaiement(
         commande: commande,
         montant: montant,
         modePaiement: modePaiement,
@@ -286,17 +342,10 @@ class _PaiementScreenState
         enregistrement = false;
       });
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            e.toString().replaceFirst(
-                  'Exception: ',
-                  '',
-                ),
-          ),
-          backgroundColor:
-              Colors.red,
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
         ),
       );
 
@@ -306,14 +355,11 @@ class _PaiementScreenState
     if (!mounted) return;
 
     setState(() {
-      totalPaye =
-          resultat.situation.totalPaye;
+      totalPaye = resultat.situation.totalPaye;
 
-      resteAPayer =
-          resultat.situation.resteAPayer;
+      resteAPayer = resultat.situation.resteAPayer;
 
-      statutPaiement =
-          resultat.situation.statut;
+      statutPaiement = resultat.situation.statut;
     });
 
     // ----------------------------------------------------------
@@ -327,68 +373,46 @@ class _PaiementScreenState
     String? erreurPdf;
 
     try {
-      final client =
-          await DatabaseHelper.instance
-              .getClientById(
+      final client = await DatabaseHelper.instance.getClientById(
         commande.clientId,
       );
 
-      final details =
-          await CommandeService.instance
-              .getDetailsCommande(
+      final details = await CommandeService.instance.getDetailsCommande(
         commande.id!,
       );
 
-      final parametre =
-          await DatabaseHelper.instance
-              .getParametre();
+      final parametre = await DatabaseHelper.instance.getParametre();
 
       await PdfService.genererRecu(
-        nomPressing:
-            parametre?.nomPressing ??
-                'Life Pressing',
+        nomPressing: parametre?.nomPressing ?? 'Life Pressing',
 
-        adresse:
-            parametre?.adresse ?? '',
+        adresse: parametre?.adresse ?? '',
 
-        email:
-            parametre?.email ?? '',
+        email: parametre?.email ?? '',
 
         client: client == null
             ? 'Client inconnu'
             : '${client.nom} ${client.prenom}',
 
-        telephone: client == null
-            ? '-'
-            : client.telephone,
+        telephone: client == null ? '-' : client.telephone,
 
-        numeroCommande:
-            commande.id!,
+        numeroCommande: commande.id!,
 
-        date:
-            resultat.paiement.date,
+        date: resultat.paiement.date,
 
-        modePaiement:
-            resultat
-                .paiement.modePaiement,
+        modePaiement: resultat.paiement.modePaiement,
 
         articles: details,
 
         montant: montant,
 
-        montantCommande:
-            commande.total,
+        montantCommande: commande.total,
 
-        paiementEffectue:
-            montant,
+        paiementEffectue: montant,
 
-        totalPaye:
-            resultat
-                .situation.totalPaye,
+        totalPaye: resultat.situation.totalPaye,
 
-        resteAPayer:
-            resultat
-                .situation.resteAPayer,
+        resteAPayer: resultat.situation.resteAPayer,
       );
     } catch (e) {
       erreurPdf = e.toString();
@@ -405,139 +429,110 @@ class _PaiementScreenState
     });
 
     if (erreurPdf == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Paiement enregistré avec succès.',
-          ),
-          backgroundColor:
-              Colors.green,
+          content: Text('Paiement enregistré avec succès.'),
+          backgroundColor: Colors.green,
         ),
       );
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Paiement enregistré, mais le reçu PDF '
             'n’a pas pu être généré.',
           ),
-          backgroundColor:
-              Colors.orange,
+          backgroundColor: Colors.orange,
         ),
       );
     }
   }
-Future<void> regenererRecuPaiement({
-  required Paiement paiement,
-  required Commande commande,
-}) async {
-  try {
-    final client =
-        await DatabaseHelper.instance.getClientById(
-      commande.clientId,
-    );
 
-    final details =
-        await CommandeService.instance.getDetailsCommande(
-      commande.id!,
-    );
+  Future<void> regenererRecuPaiement({
+    required Paiement paiement,
+    required Commande commande,
+  }) async {
+    try {
+      final client = await DatabaseHelper.instance.getClientById(
+        commande.clientId,
+      );
 
-    final parametre =
-        await DatabaseHelper.instance.getParametre();
+      final details = await CommandeService.instance.getDetailsCommande(
+        commande.id!,
+      );
 
-    // Tous les paiements de cette commande.
-    final paiementsCommande =
-        await PaiementService.instance.getPaiementsCommande(
-      commande.id!,
-    );
+      final parametre = await DatabaseHelper.instance.getParametre();
 
-    // On remet les paiements dans l'ordre d'enregistrement.
-    paiementsCommande.sort(
-      (a, b) => (a.id ?? 0).compareTo(b.id ?? 0),
-    );
+      // Tous les paiements de cette commande.
+      final paiementsCommande = await PaiementService.instance
+          .getPaiementsCommande(commande.id!);
 
-    double totalPayeAuMoment = 0;
+      // On remet les paiements dans l'ordre d'enregistrement.
+      paiementsCommande.sort((a, b) => (a.id ?? 0).compareTo(b.id ?? 0));
 
-    for (final element in paiementsCommande) {
-      totalPayeAuMoment += element.montant;
+      double totalPayeAuMoment = 0;
 
-      if (paiement.id != null &&
-          element.id == paiement.id) {
-        break;
+      for (final element in paiementsCommande) {
+        totalPayeAuMoment += element.montant;
+
+        if (paiement.id != null && element.id == paiement.id) {
+          break;
+        }
       }
-    }
 
-    // Sécurité si un ancien paiement n'a pas d'identifiant.
-    if (paiement.id == null) {
-      totalPayeAuMoment = paiement.montant;
-    }
+      // Sécurité si un ancien paiement n'a pas d'identifiant.
+      if (paiement.id == null) {
+        totalPayeAuMoment = paiement.montant;
+      }
 
-    double reste =
-        commande.total - totalPayeAuMoment;
+      double reste = commande.total - totalPayeAuMoment;
 
-    if (reste < 0) {
-      reste = 0;
-    }
+      if (reste < 0) {
+        reste = 0;
+      }
 
-    await PdfService.genererRecu(
-      nomPressing:
-          parametre?.nomPressing ?? 'Life Pressing',
+      await PdfService.genererRecu(
+        nomPressing: parametre?.nomPressing ?? 'Life Pressing',
 
-      adresse:
-          parametre?.adresse ?? '',
+        adresse: parametre?.adresse ?? '',
 
-      email:
-          parametre?.email ?? '',
+        email: parametre?.email ?? '',
 
-      client: client == null
-          ? 'Client inconnu'
-          : '${client.nom} ${client.prenom}',
+        client: client == null
+            ? 'Client inconnu'
+            : '${client.nom} ${client.prenom}',
 
-      telephone:
-          client?.telephone ?? '-',
+        telephone: client?.telephone ?? '-',
 
-      numeroCommande:
-          commande.id!,
+        numeroCommande: commande.id!,
 
-      date:
-          paiement.date,
+        date: paiement.date,
 
-      modePaiement:
-          paiement.modePaiement,
+        modePaiement: paiement.modePaiement,
 
-      articles:
-          details,
+        articles: details,
 
-      montant:
-          paiement.montant,
+        montant: paiement.montant,
 
-      montantCommande:
-          commande.total,
+        montantCommande: commande.total,
 
-      paiementEffectue:
-          paiement.montant,
+        paiementEffectue: paiement.montant,
 
-      totalPaye:
-          totalPayeAuMoment,
+        totalPaye: totalPayeAuMoment,
 
-      resteAPayer:
-          reste,
-    );
-  } catch (e) {
-    if (!mounted) return;
+        resteAPayer: reste,
+      );
+    } catch (e) {
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Impossible de générer le reçu : $e',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Impossible de générer le reçu : $e'),
+          backgroundColor: Colors.red,
         ),
-        backgroundColor: Colors.red,
-      ),
-    );
+      );
+    }
   }
-}
   // ============================================================
   // COULEUR DU STATUT DE PAIEMENT
   // ============================================================
@@ -563,117 +558,75 @@ Future<void> regenererRecuPaiement({
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title:
-            const Text('Paiements'),
+        title: const Text('Paiements'),
         centerTitle: true,
         actions: [
           IconButton(
             tooltip: 'Actualiser',
-            onPressed:
-                chargerDonnees,
-            icon: const Icon(
-              Icons.refresh,
-            ),
+            onPressed: chargerDonnees,
+            icon: const Icon(Icons.refresh),
           ),
         ],
       ),
 
       body: chargement
-          ? const Center(
-              child:
-                  CircularProgressIndicator(),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : Padding(
-              padding:
-                  const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   // =============================================
                   // COMMANDE
                   // =============================================
-
-                  DropdownButtonFormField<
-                      Commande>(
-                    key: ValueKey(
-                      commandeSelectionnee
-                              ?.id ??
-                          'aucune',
+                  DropdownButtonFormField<Commande>(
+                    key: ValueKey(commandeSelectionnee?.id ?? 'aucune'),
+                    initialValue: commandeSelectionnee,
+                    decoration: const InputDecoration(
+                      labelText: 'Commande',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.receipt_long),
                     ),
-                    initialValue:
-                        commandeSelectionnee,
-                    decoration:
-                        const InputDecoration(
-                      labelText:
-                          'Commande',
-                      border:
-                          OutlineInputBorder(),
-                      prefixIcon: Icon(
-                        Icons.receipt_long,
-                      ),
-                    ),
-                    items:
-                        commandes.map(
-                      (commande) {
-                        return DropdownMenuItem<
-                            Commande>(
-                          value:
-                              commande,
-                          child: Text(
-                            'Commande '
-                            '#${commande.id} - '
-                            '${commande.total.toStringAsFixed(0)} FCFA',
-                          ),
-                        );
-                      },
-                    ).toList(),
-                    onChanged:
-                        (commande) async {
+                    items: commandes.map((commande) {
+                      return DropdownMenuItem<Commande>(
+                        value: commande,
+                        child: Text(
+                          'Commande '
+                          '#${commande.id} - '
+                          '${commande.total.toStringAsFixed(0)} FCFA',
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (commande) async {
                       setState(() {
-                        commandeSelectionnee =
-                            commande;
+                        commandeSelectionnee = commande;
 
                         totalPaye = 0;
                         resteAPayer = 0;
-                        statutPaiement =
-                            'Non payé';
+                        statutPaiement = 'Non payé';
                       });
 
                       await calculerPaiement();
                     },
                   ),
 
-                  const SizedBox(
-                    height: 15,
-                  ),
+                  const SizedBox(height: 15),
 
                   // =============================================
                   // RÉSUMÉ
                   // =============================================
-
-                  if (commandeSelectionnee !=
-                      null)
+                  if (commandeSelectionnee != null)
                     Card(
-                      color:
-                          Colors.blue.shade50,
+                      color: Colors.blue.shade50,
                       child: Padding(
-                        padding:
-                            const EdgeInsets
-                                .all(16),
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           children: [
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment
-                                      .spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
                                   'Montant de la commande',
-                                  style:
-                                      TextStyle(
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 Text(
                                   '${commandeSelectionnee!.total.toStringAsFixed(0)} FCFA',
@@ -684,26 +637,15 @@ Future<void> regenererRecuPaiement({
                             const Divider(),
 
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment
-                                      .spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
                                   'Total payé',
-                                  style:
-                                      TextStyle(
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 Text(
                                   '${totalPaye.toStringAsFixed(0)} FCFA',
-                                  style:
-                                      const TextStyle(
-                                    color:
-                                        Colors.green,
-                                  ),
+                                  style: const TextStyle(color: Colors.green),
                                 ),
                               ],
                             ),
@@ -711,31 +653,19 @@ Future<void> regenererRecuPaiement({
                             const Divider(),
 
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment
-                                      .spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
                                   'Reste à payer',
-                                  style:
-                                      TextStyle(
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 Text(
                                   '${resteAPayer.toStringAsFixed(0)} FCFA',
-                                  style:
-                                      TextStyle(
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
-                                    color:
-                                        resteAPayer >
-                                                0
-                                            ? Colors.red
-                                            : Colors.green,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: resteAPayer > 0
+                                        ? Colors.red
+                                        : Colors.green,
                                   ),
                                 ),
                               ],
@@ -744,31 +674,19 @@ Future<void> regenererRecuPaiement({
                             const Divider(),
 
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment
-                                      .spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
                                   'Statut du paiement',
-                                  style:
-                                      TextStyle(
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
 
                                 Chip(
                                   label: Text(
                                     statutPaiement,
-                                    style:
-                                        const TextStyle(
-                                      color:
-                                          Colors.white,
-                                    ),
+                                    style: const TextStyle(color: Colors.white),
                                   ),
-                                  backgroundColor:
-                                      couleurStatutPaiement(),
+                                  backgroundColor: couleurStatutPaiement(),
                                 ),
                               ],
                             ),
@@ -777,97 +695,55 @@ Future<void> regenererRecuPaiement({
                       ),
                     ),
 
-                  const SizedBox(
-                    height: 15,
-                  ),
+                  const SizedBox(height: 15),
 
                   // =============================================
                   // MONTANT
                   // =============================================
-
                   TextField(
-                    controller:
-                        montantController,
-                    enabled:
-                        commandeSelectionnee !=
-                                null &&
-                            resteAPayer > 0,
-                    keyboardType:
-                        const TextInputType
-                            .numberWithOptions(
+                    controller: montantController,
+                    enabled: commandeSelectionnee != null && resteAPayer > 0,
+                    keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration:
-                        InputDecoration(
-                      labelText:
-                          'Montant payé',
-                      border:
-                          const OutlineInputBorder(),
-                      prefixIcon:
-                          const Icon(
-                        Icons.payments,
-                      ),
-                      suffixText:
-                          'FCFA',
-                      helperText:
-                          commandeSelectionnee ==
-                                  null
-                              ? 'Sélectionnez d’abord une commande'
-                              : resteAPayer <=
-                                      0
-                                  ? 'Commande entièrement payée'
-                                  : 'Maximum : ${resteAPayer.toStringAsFixed(0)} FCFA',
+                    decoration: InputDecoration(
+                      labelText: 'Montant payé',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.payments),
+                      suffixText: 'FCFA',
+                      helperText: commandeSelectionnee == null
+                          ? 'Sélectionnez d’abord une commande'
+                          : resteAPayer <= 0
+                          ? 'Commande entièrement payée'
+                          : 'Maximum : ${resteAPayer.toStringAsFixed(0)} FCFA',
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 15,
-                  ),
+                  const SizedBox(height: 15),
 
                   // =============================================
                   // MODE DE PAIEMENT
                   // =============================================
-
-                  DropdownButtonFormField<
-                      String>(
-                    initialValue:
-                        modePaiement,
-                    decoration:
-                        const InputDecoration(
-                      labelText:
-                          'Mode de paiement',
-                      border:
-                          OutlineInputBorder(),
-                      prefixIcon: Icon(
-                        Icons
-                            .account_balance_wallet,
-                      ),
+                  DropdownButtonFormField<String>(
+                    initialValue: modePaiement,
+                    decoration: const InputDecoration(
+                      labelText: 'Mode de paiement',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.account_balance_wallet),
                     ),
                     items: const [
                       DropdownMenuItem(
-                        value:
-                            'Espèces',
-                        child:
-                            Text('Espèces'),
+                        value: 'Espèces',
+                        child: Text('Espèces'),
                       ),
                       DropdownMenuItem(
-                        value:
-                            'Orange Money',
-                        child: Text(
-                          'Orange Money',
-                        ),
+                        value: 'Orange Money',
+                        child: Text('Orange Money'),
                       ),
+                      DropdownMenuItem(value: 'Wave', child: Text('Wave')),
                       DropdownMenuItem(
-                        value: 'Wave',
-                        child:
-                            Text('Wave'),
-                      ),
-                      DropdownMenuItem(
-                        value:
-                            'Carte bancaire',
-                        child: Text(
-                          'Carte bancaire',
-                        ),
+                        value: 'Carte bancaire',
+                        child: Text('Carte bancaire'),
                       ),
                     ],
                     onChanged: (value) {
@@ -876,38 +752,24 @@ Future<void> regenererRecuPaiement({
                       }
 
                       setState(() {
-                        modePaiement =
-                            value;
+                        modePaiement = value;
                       });
                     },
                   ),
 
-                  const SizedBox(
-                    height: 20,
-                  ),
+                  const SizedBox(height: 20),
 
                   SizedBox(
-                    width:
-                        double.infinity,
-                    child:
-                        ElevatedButton.icon(
-                      onPressed:
-                          enregistrement
-                              ? null
-                              : enregistrerPaiement,
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: enregistrement ? null : enregistrerPaiement,
                       icon: enregistrement
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child:
-                                  CircularProgressIndicator(
-                                strokeWidth:
-                                    2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(
-                              Icons.save,
-                            ),
+                          : const Icon(Icons.save),
                       label: Text(
                         enregistrement
                             ? 'Enregistrement...'
@@ -916,203 +778,188 @@ Future<void> regenererRecuPaiement({
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 20,
-                  ),
+                  const SizedBox(height: 20),
 
                   const Divider(),
 
                   const Text(
                     'Historique des paiements',
-                    style: TextStyle(
-                      fontWeight:
-                          FontWeight.bold,
-                      fontSize: 18,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+
+                  const SizedBox(height: 15),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: choisirDateDebut,
+                          icon: const Icon(Icons.calendar_month),
+                          label: Text('Début : ${afficherDate(dateDebut)}'),
+                        ),
+                      ),
+
+                      const SizedBox(width: 10),
+
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: choisirDateFin,
+                          icon: const Icon(Icons.calendar_month),
+                          label: Text('Fin : ${afficherDate(dateFin)}'),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  if (dateDebut != null || dateFin != null)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: reinitialiserPeriode,
+                        icon: const Icon(Icons.clear),
+                        label: const Text('Réinitialiser la période'),
+                      ),
+                    ),
+
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Total encaissé',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '${totalEncaissementsFiltres.toStringAsFixed(0)} FCFA',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 15,
-                  ),
+                  const SizedBox(height: 15),
 
                   TextField(
-                    controller:
-                        rechercheController,
-                    onChanged:
-                        rechercherPaiement,
-                    decoration:
-                        const InputDecoration(
-                      hintText:
-                          'Rechercher un paiement...',
-                      prefixIcon:
-                          Icon(Icons.search),
-                      border:
-                          OutlineInputBorder(),
+                    controller: rechercheController,
+                    onChanged: rechercherPaiement,
+                    decoration: const InputDecoration(
+                      hintText: 'Rechercher un paiement...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 15,
-                  ),
+                  const SizedBox(height: 15),
 
                   // =============================================
                   // HISTORIQUE
                   // =============================================
-
                   Expanded(
-                    child:
-                        paiementsFiltres.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'Aucun paiement enregistré',
-                                ),
-                              )
-                            : ListView.builder(
-                                itemCount:
-                                    paiementsFiltres
-                                        .length,
-                                itemBuilder:
-                                    (context,
-                                        index) {
-                                  final paiement =
-                                      paiementsFiltres[
-                                          index];
+                    child: paiementsFiltres.isEmpty
+                        ? const Center(child: Text('Aucun paiement enregistré'))
+                        : ListView.builder(
+                            itemCount: paiementsFiltres.length,
+                            itemBuilder: (context, index) {
+                              final paiement = paiementsFiltres[index];
 
-                                  return FutureBuilder<
-                                      Commande?>(
-                                    future: CommandeService
-                                        .instance
-                                        .getCommandeById(
-                                      paiement
-                                          .commandeId,
-                                    ),
-                                    builder:
-                                        (context,
-                                            commandeSnapshot) {
-                                      if (commandeSnapshot
-                                              .connectionState ==
-                                          ConnectionState
-                                              .waiting) {
+                              return FutureBuilder<Commande?>(
+                                future: CommandeService.instance
+                                    .getCommandeById(paiement.commandeId),
+                                builder: (context, commandeSnapshot) {
+                                  if (commandeSnapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Card(
+                                      child: ListTile(
+                                        title: Text('Chargement...'),
+                                      ),
+                                    );
+                                  }
+
+                                  final commande = commandeSnapshot.data;
+
+                                  if (commande == null) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  return FutureBuilder(
+                                    future: DatabaseHelper.instance
+                                        .getClientById(commande.clientId),
+                                    builder: (context, clientSnapshot) {
+                                      if (clientSnapshot.connectionState ==
+                                          ConnectionState.waiting) {
                                         return const Card(
-                                          child:
-                                              ListTile(
-                                            title:
-                                                Text(
-                                              'Chargement...',
-                                            ),
+                                          child: ListTile(
+                                            title: Text('Chargement...'),
                                           ),
                                         );
                                       }
 
-                                      final commande =
-                                          commandeSnapshot
-                                              .data;
+                                      final client = clientSnapshot.data;
 
-                                      if (commande ==
-                                          null) {
-                                        return const SizedBox
-                                            .shrink();
-                                      }
-
-                                      return FutureBuilder(
-                                        future: DatabaseHelper
-                                            .instance
-                                            .getClientById(
-                                          commande
-                                              .clientId,
+                                      return Card(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 10,
                                         ),
-                                        builder:
-                                            (context,
-                                                clientSnapshot) {
-                                          if (clientSnapshot
-                                                  .connectionState ==
-                                              ConnectionState
-                                                  .waiting) {
-                                            return const Card(
-                                              child:
-                                                  ListTile(
-                                                title:
-                                                    Text(
-                                                  'Chargement...',
-                                                ),
-                                              ),
-                                            );
-                                          }
-
-                                          final client =
-                                              clientSnapshot
-                                                  .data;
-
-                                          return Card(
-                                            margin:
-                                                const EdgeInsets
-                                                    .only(
-                                              bottom:
-                                                  10,
+                                        child: ListTile(
+                                          leading: const CircleAvatar(
+                                            child: Icon(Icons.payments),
+                                          ),
+                                          title: Text(
+                                            client == null
+                                                ? 'Client inconnu'
+                                                : '${client.nom} ${client.prenom}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                            child:
-                                                ListTile(
-                                              leading:
-                                                  const CircleAvatar(
-                                                child:
-                                                    Icon(
-                                                  Icons
-                                                      .payments,
+                                          ),
+                                          subtitle: Text(
+                                            'Commande #${paiement.commandeId}\n'
+                                            '${paiement.modePaiement}\n'
+                                            '${paiement.date}',
+                                          ),
+                                          trailing: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                '${paiement.montant.toStringAsFixed(0)} FCFA',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.green,
                                                 ),
                                               ),
-                                              title:
-                                                  Text(
-                                                client ==
-                                                        null
-                                                    ? 'Client inconnu'
-                                                    : '${client.nom} ${client.prenom}',
-                                                style:
-                                                    const TextStyle(
-                                                  fontWeight:
-                                                      FontWeight.bold,
+
+                                              const SizedBox(width: 8),
+
+                                              IconButton(
+                                                tooltip: 'Voir le reçu',
+                                                icon: const Icon(
+                                                  Icons.receipt_long,
                                                 ),
+                                                onPressed: () {
+                                                  regenererRecuPaiement(
+                                                    paiement: paiement,
+                                                    commande: commande,
+                                                  );
+                                                },
                                               ),
-                                              subtitle:
-                                                  Text(
-                                                'Commande #${paiement.commandeId}\n'
-                                                '${paiement.modePaiement}\n'
-                                                '${paiement.date}',
-                                              ),
-                                              trailing: Row(
-  mainAxisSize: MainAxisSize.min,
-  children: [
-    Text(
-      '${paiement.montant.toStringAsFixed(0)} FCFA',
-      style: const TextStyle(
-        fontWeight: FontWeight.bold,
-        color: Colors.green,
-      ),
-    ),
-
-    const SizedBox(width: 8),
-
-    IconButton(
-      tooltip: 'Voir le reçu',
-      icon: const Icon(
-        Icons.receipt_long,
-      ),
-      onPressed: () {
-        regenererRecuPaiement(
-          paiement: paiement,
-          commande: commande,
-        );
-      },
-    ),
-  ],
-),
-                                            ),
-                                          );
-                                        },
+                                            ],
+                                          ),
+                                        ),
                                       );
                                     },
                                   );
                                 },
-                              ),
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),

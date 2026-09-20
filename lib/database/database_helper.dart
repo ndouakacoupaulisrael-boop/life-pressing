@@ -186,7 +186,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -539,9 +539,11 @@ class DatabaseHelper {
     categorie TEXT NOT NULL,
     montant REAL NOT NULL,
     date TEXT NOT NULL,
-    note TEXT NOT NULL DEFAULT ''
+    note TEXT NOT NULL DEFAULT '',
+    pieceJustificativeNom TEXT,
+    pieceJustificative BLOB
   )
-  ''');
+''');
     // =======================
     // TARIFS / SERVICES
     // =======================
@@ -719,6 +721,31 @@ class DatabaseHelper {
           "ALTER TABLE details_commande "
           "ADD COLUMN matiere TEXT "
           "NOT NULL DEFAULT 'Non précisée'",
+        );
+      }
+    }
+    if (oldVersion < 14) {
+      final colonnes = await db.rawQuery('PRAGMA table_info(charges)');
+
+      final contientNom = colonnes.any(
+        (colonne) => colonne['name'] == 'pieceJustificativeNom',
+      );
+
+      if (!contientNom) {
+        await db.execute(
+          'ALTER TABLE charges '
+          'ADD COLUMN pieceJustificativeNom TEXT',
+        );
+      }
+
+      final contientPiece = colonnes.any(
+        (colonne) => colonne['name'] == 'pieceJustificative',
+      );
+
+      if (!contientPiece) {
+        await db.execute(
+          'ALTER TABLE charges '
+          'ADD COLUMN pieceJustificative BLOB',
         );
       }
     }
